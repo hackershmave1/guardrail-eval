@@ -16,7 +16,7 @@ Promptfoo calls `call_api(prompt, options, context)`. We return:
                 "defense": str|None, "ran": bool, "note": str } }
 so the assertion can grade on `canary_reached` deterministically.
 
-Per-test config (set under `providers[].config` or a test's `provider.config`):
+Per-test config (set under each test's `vars`; merged over provider `config`):
   lab          relative lab dir, e.g. "labs/01-mcp-tool-poisoning"   (required)
   run          "agent" | "script" | "rag_attack"                     (required)
   servers      list of MCP server scripts (run == "agent")
@@ -133,7 +133,11 @@ def _build_cmd(lab_dir: Path, cfg: dict, prompt: str):
 
 
 def call_api(prompt, options, context):
-    cfg = (options or {}).get("config", {}) or {}
+    # Scenario config is carried in each test's `vars` (merged over any
+    # provider-level `config`), so a single top-level provider serves every
+    # test — promptfoo requires exactly one top-level provider/target.
+    cfg = dict((options or {}).get("config", {}) or {})
+    cfg.update((context or {}).get("vars", {}) or {})
     lab_dir = _lab_dir(cfg)
 
     env = dict(os.environ)
