@@ -1,0 +1,16 @@
+# guardrail-eval — Python deps for the AgenticGoat labs + the Promptfoo harness.
+# Pins mirror the labs' own requirements.txt files; promptfoo itself is a Node
+# tool installed separately (npm install -g promptfoo).
+
+# MCP agent + servers (Labs 01, 01b, 03, 06)
+mcp>=1.0.0,<2.0.0
+openai>=1.0.0
+httpx>=0.27.0
+
+# Exfil / OOB listeners (the deterministic oracle, REQ-OR-02)
+flask>=3.0.0
+
+# RAG pipeline (Lab 04)
+chromadb>=0.5.0
+sentence-transformers>=3.0.0
+numpy>=1.26.0
