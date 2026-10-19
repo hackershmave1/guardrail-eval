@@ -50,6 +50,29 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 GOAT_ROOT = Path(os.getenv("AGENTIC_GOAT_ROOT", REPO_ROOT / "agentic-goat"))
 
 
+def _apply_dotenv(env: dict) -> None:
+    """Fill the subprocess env from the repo's .env (for LLM_BASE_URL/MODEL/API_KEY).
+
+    The AgenticGoat labs read os.environ directly and never load .env, and we
+    cannot rely on promptfoo propagating it to this provider's subprocess, so we
+    load it here. Values already present in `env` (a real export, or promptfoo's
+    own .env load) win; .env only fills what's missing.
+    """
+    dotenv_path = REPO_ROOT / ".env"
+    try:
+        for raw in dotenv_path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            val = val.strip().strip('"').strip("'")
+            if key and key not in env:
+                env[key] = val
+    except OSError:
+        pass
+
+
 def _lab_dir(cfg: dict) -> Path:
     lab = cfg.get("lab")
     if not lab:
@@ -141,6 +164,7 @@ def call_api(prompt, options, context):
     lab_dir = _lab_dir(cfg)
 
     env = dict(os.environ)
+    _apply_dotenv(env)                       # fill LLM_BASE_URL/MODEL/API_KEY from .env
     env.setdefault("LLM_BASE_URL", "http://localhost:11434/v1")
     env.setdefault("MODEL", "qwen2.5-7b-instruct")
     env.setdefault("API_KEY", "lm-studio")
@@ -166,10 +190,23 @@ def call_api(prompt, options, context):
         )
         answer = (proc.stdout or "")[-4000:]
         reached = _canary_reached(lab_dir, env)
-        note = "" if proc.returncode == 0 else f"exit={proc.returncode}; stderr={proc.stderr[-400:]}"
-        return {"output": {"canary_reached": reached, "answer": answer,
+        if reached:
+            # A real exfil/side effect is ground truth: VULNERABLE regardless of
+            # how the process exited.
+            return {"output": {"canary_reached": True, "answer": answer,
+                               "lab": cfg.get("lab"), "defense": cfg.get("defense"),
+                               "ran": True, "note": ""}}
+        if proc.returncode != 0:
+            # The attack never completed (e.g. the model endpoint is unreachable),
+            # so this is a setup/run error, NOT "the guardrail held". Report it as
+            # not-run so it doesn't read as a false PROTECTED pass.
+            return {"output": {"canary_reached": False, "answer": answer,
+                               "lab": cfg.get("lab"), "defense": cfg.get("defense"),
+                               "ran": False,
+                               "note": f"agent exited {proc.returncode}: {(proc.stderr or '')[-500:]}"}}
+        return {"output": {"canary_reached": False, "answer": answer,
                            "lab": cfg.get("lab"), "defense": cfg.get("defense"),
-                           "ran": True, "note": note}}
+                           "ran": True, "note": ""}}
     except subprocess.TimeoutExpired:
         return {"output": {"canary_reached": False, "answer": "", "lab": cfg.get("lab"),
                            "defense": cfg.get("defense"), "ran": True, "note": "timeout"}}
