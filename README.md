@@ -78,6 +78,11 @@ pip install -r requirements.txt
 # 3. Promptfoo
 npm install -g promptfoo
 
+# 3b. Lab 01 (MCP/Tools SSH-key exfil) also spawns a Node MCP server, so install
+#     its npm deps once. Without this the poisoned add() has no read_file tool to
+#     abuse and the row errors out (looks like a false "protected" pass).
+( cd agentic-goat/labs/01-mcp-tool-poisoning && npm install )
+
 # 4. an OpenAI-compatible model, held constant & permissive (REQ-MD-01/02).
 #    Put the key in .env (gitignored) — promptfoo and the provider both read it.
 cp .env.example .env     # then edit LLM_BASE_URL / API_KEY / MODEL

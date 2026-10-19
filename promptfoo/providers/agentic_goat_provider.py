@@ -73,6 +73,23 @@ def _apply_dotenv(env: dict) -> None:
         pass
 
 
+def _as_list(value) -> list:
+    """Coerce a config value to a list of strings.
+
+    promptfoo collapses a single-element list in a test's `vars` to a bare
+    scalar before it reaches this provider, so `servers: ["x.py"]` arrives as
+    the string "x.py". Without this, `list("x.py")` explodes into one-character
+    "servers" (['x', '.', 'p', 'y']) — the agent then tries to launch 'x' as a
+    server and the run dies (npm "install a" / "Connection closed"), which the
+    oracle misreads as PROTECTED. Coerce str -> [str]; leave real lists alone.
+    """
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return list(value)
+
+
 def _lab_dir(cfg: dict) -> Path:
     lab = cfg.get("lab")
     if not lab:
@@ -81,7 +98,7 @@ def _lab_dir(cfg: dict) -> Path:
 
 
 def _reset_state(lab_dir: Path, cfg: dict) -> None:
-    for rel in cfg.get("reset_state", []) or []:
+    for rel in _as_list(cfg.get("reset_state")):
         target = lab_dir / rel
         try:
             if target.exists():
@@ -129,7 +146,7 @@ def _canary_reached(lab_dir: Path, env: dict) -> bool:
 def _build_cmd(lab_dir: Path, cfg: dict, prompt: str):
     run = cfg.get("run")
     if run == "agent":
-        servers = cfg.get("servers") or []
+        servers = _as_list(cfg.get("servers"))
         arg_style = cfg.get("arg_style", "positional")
         cmd = [sys.executable, "agent.py"]
         if arg_style == "server-flags":
