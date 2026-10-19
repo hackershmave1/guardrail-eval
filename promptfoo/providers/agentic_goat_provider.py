@@ -76,17 +76,21 @@ def _apply_dotenv(env: dict) -> None:
 def _as_list(value) -> list:
     """Coerce a config value to a list of strings.
 
-    promptfoo collapses a single-element list in a test's `vars` to a bare
-    scalar before it reaches this provider, so `servers: ["x.py"]` arrives as
-    the string "x.py". Without this, `list("x.py")` explodes into one-character
-    "servers" (['x', '.', 'p', 'y']) — the agent then tries to launch 'x' as a
-    server and the run dies (npm "install a" / "Connection closed"), which the
-    oracle misreads as PROTECTED. Coerce str -> [str]; leave real lists alone.
+    Multi-valued fields (`servers`, `reset_state`) are passed as a single
+    COMMA-DELIMITED scalar, NOT a YAML list, and split here. Two reasons:
+      1. promptfoo matrix-expands an array `vars` value into one test case per
+         element — so `servers: [poison, filesystem]` would run each server in a
+         SEPARATE agent, breaking two-server attacks (Lab 01 poison+filesystem,
+         Lab 06 cross-server poisoning). A scalar is passed through as one case.
+      2. A bare string must not be fed to `list()` (that explodes "x.py" into
+         ['x','.','p','y'], the agent launches 'x' as a server, and the crash
+         gets misread as PROTECTED).
+    Coerce str -> split on ',' (trimmed, empties dropped); leave real lists alone.
     """
     if value is None:
         return []
     if isinstance(value, str):
-        return [value]
+        return [s.strip() for s in value.split(",") if s.strip()]
     return list(value)
 
 
