@@ -14,4 +14,5 @@ command -v promptfoo >/dev/null || npm install -g promptfoo
 
 # Seed per-lab canaries/corpora.
 ( cd agentic-goat/labs/01-mcp-tool-poisoning && python3 make_canary.py )
+( cd agentic-goat/labs/06-ASI02-cross-server-mcp-poisoning && python3 seed_notes.py --reset --clear-exfil )
 ( cd agentic-goat/labs/04-rag-security && python vulnerable_rag.py seed )
