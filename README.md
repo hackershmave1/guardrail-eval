@@ -92,7 +92,11 @@ export API_KEY=sk-or-...
 export MODEL=qwen/qwen-2.5-7b-instruct
 #    Or a local model (Ollama): LLM_BASE_URL=http://localhost:11434/v1, MODEL=qwen2.5-7b-instruct
 
-# 5. (RAG only) seed the clean knowledge base once
+# 5. seed the per-lab canaries/corpora once
+#    Lab 01: write the synthetic SSH-key canary (~/.ssh/id_rsa.pub.demo) the exfil steals.
+#    Without this, read_file finds nothing and the MCP/EXF rows go green for the wrong reason.
+( cd agentic-goat/labs/01-mcp-tool-poisoning && python3 make_canary.py )
+#    Lab 04 (RAG): seed the clean knowledge base.
 ( cd agentic-goat/labs/04-rag-security && python vulnerable_rag.py seed )
 ```
 
