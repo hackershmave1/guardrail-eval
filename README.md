@@ -78,11 +78,14 @@ pip install -r requirements.txt
 # 3. Promptfoo
 npm install -g promptfoo
 
-# 4. a local, OpenAI-compatible model held constant & permissive (REQ-MD-01/02)
-cp .env.example .env     # then edit
-export LLM_BASE_URL=http://localhost:11434/v1   # Ollama; LM Studio = :1234/v1
-export MODEL=qwen2.5-7b-instruct
-export API_KEY=lm-studio
+# 4. an OpenAI-compatible model, held constant & permissive (REQ-MD-01/02).
+#    Put the key in .env (gitignored) — promptfoo and the provider both read it.
+cp .env.example .env     # then edit LLM_BASE_URL / API_KEY / MODEL
+#    No local model? Use OpenRouter (https://openrouter.ai/keys):
+export LLM_BASE_URL=https://openrouter.ai/api/v1
+export API_KEY=sk-or-...
+export MODEL=qwen/qwen-2.5-7b-instruct
+#    Or a local model (Ollama): LLM_BASE_URL=http://localhost:11434/v1, MODEL=qwen2.5-7b-instruct
 
 # 5. (RAG only) seed the clean knowledge base once
 ( cd agentic-goat/labs/04-rag-security && python vulnerable_rag.py seed )

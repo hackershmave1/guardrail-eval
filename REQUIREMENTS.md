@@ -40,6 +40,13 @@ Document any scenario where the model refused on its own, so it is not credited 
 guardrail. For the model-dependent labs, prefer a stronger carrier (Agentic Goat notes
 `gpt-oss-20b` reproduces the attacks; small 7B models often do not).
 
+**No local model?** Use any OpenAI-compatible hosted endpoint — e.g. OpenRouter:
+`LLM_BASE_URL=https://openrouter.ai/api/v1`, `API_KEY=<your OpenRouter key>`,
+`MODEL=<an OpenRouter model id>`. Keep the key in `.env` (gitignored), never in git.
+Note (REQ-ENV-03): with a hosted model the model inference leaves the box, but the labs'
+exfil listeners and canaries stay on `localhost`, so the attack side effects remain
+contained; still run in a disposable VM/container.
+
 ## When this grows into the full POC
 
 This phase uses Agentic Goat as the single target and no vendor guardrail in front — it
