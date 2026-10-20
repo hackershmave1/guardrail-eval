@@ -96,7 +96,10 @@ export MODEL=qwen/qwen-2.5-7b-instruct
 #    Lab 01: write the synthetic SSH-key canary (~/.ssh/id_rsa.pub.demo) the exfil steals.
 #    Without this, read_file finds nothing and the MCP/EXF rows go green for the wrong reason.
 ( cd agentic-goat/labs/01-mcp-tool-poisoning && python3 make_canary.py )
-#    Lab 04 (RAG): seed the clean knowledge base.
+#    Lab 06 (MCP PI-04): seed the victim notes store that holds the flag note.
+( cd agentic-goat/labs/06-ASI02-cross-server-mcp-poisoning && python3 seed_notes.py --reset --clear-exfil )
+#    Lab 04 (RAG): seed the clean knowledge base. Downloads all-MiniLM-L6-v2, so the
+#    network must allow huggingface.co AND its file CDN (*.hf.co).
 ( cd agentic-goat/labs/04-rag-security && python vulnerable_rag.py seed )
 ```
 
@@ -105,6 +108,12 @@ If the submodule isn't present yet, or you have no local model, set
 "did not run" instead of crashing, so you can validate the configs first.
 
 ## Run
+
+Steps 1-5 are scripted in `scripts/bootstrap.sh`. `REPEAT=5 scripts/run_evals.sh mcp tools`
+runs the configs and prints one line per row with how many attempts landed (agent rows are
+stochastic, so one attempt is not a baseline). A row reads NOT-RUN when the agent errored
+or never took the attack path the row names (its `require_trace`), so it can't go green
+for the wrong reason. Or run promptfoo directly:
 
 ```bash
 promptfoo eval -c promptfoo/mcp.yaml   && promptfoo view
