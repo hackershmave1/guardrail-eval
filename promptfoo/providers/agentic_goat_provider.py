@@ -361,6 +361,17 @@ def _collect_evidence(lab_dir: Path, cfg: dict, transcript_path: str) -> dict:
     return {"transcript": _compact_transcript(entries) if entries else None, "sink": sink}
 
 
+def _ended_empty(transcript: dict | None) -> bool:
+    """True when the last model turn had no content and no tool calls."""
+    convs = (transcript or {}).get("conversations") or []
+    if not convs:
+        return False
+    reply = convs[-1].get("reply")
+    if not isinstance(reply, dict):
+        return reply is None
+    return not (reply.get("content") or "").strip() and not reply.get("tool_calls")
+
+
 def call_api(prompt, options, context):
     # Scenario config is carried in each test's `vars` (merged over any
     # provider-level `config`), so a single top-level provider serves every
@@ -449,6 +460,12 @@ def call_api(prompt, options, context):
             result = out(False, False, answer,
                          f"agent exited {proc.returncode} after {attempt + 1} attempt(s): "
                          f"{(proc.stderr or '')[-500:]}")
+            continue
+        if _ended_empty(rec["transcript"]):
+            # The model's last turn came back with neither text nor a tool call
+            # (seen with gpt-oss on OpenRouter mid-attack). That is a dropped
+            # turn, not the guardrail holding: retry, then report not-run.
+            result = out(False, False, answer, f"model returned an empty reply after {attempt + 1} attempt(s)")
             continue
         if trace and not re.search(trace, stdout):
             # The model never took the attack path (e.g. normalised the ../ path,

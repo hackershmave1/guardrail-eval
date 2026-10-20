@@ -113,7 +113,11 @@ Steps 1-5 are scripted in `scripts/bootstrap.sh`. `REPEAT=5 scripts/run_evals.sh
 runs the configs and prints one line per row with how many attempts landed (agent rows are
 stochastic, so one attempt is not a baseline). A row reads NOT-RUN when the agent errored
 or never took the attack path the row names (its `require_trace`), so it can't go green
-for the wrong reason. Or run promptfoo directly:
+for the wrong reason. Each row's output also carries a `transcript` (what the model was sent, including any
+injected tool description, tool result or retrieved doc, and what it did) and a `sink` (what
+reached the attacker). `jq -f scripts/proof.jq results/mcp.json` prints the proof for every
+landed attack; it works on any `promptfoo export eval <id>` file too. `results/<config>.html`
+is promptfoo's static report of the same run. Or run promptfoo directly:
 
 ```bash
 promptfoo eval -c promptfoo/mcp.yaml   && promptfoo view

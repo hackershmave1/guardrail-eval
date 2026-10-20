@@ -18,7 +18,7 @@ stop_listeners; trap stop_listeners EXIT
 configs=("${@:-mcp rag tools}")
 for c in ${configs[@]}; do
   promptfoo eval -c "promptfoo/$c.yaml" --no-cache --no-progress-bar \
-    -j 1 --repeat "${REPEAT:-1}" -o "results/$c.json" >"results/$c.log" 2>&1
+    -j 1 --repeat "${REPEAT:-1}" -o "results/$c.json" "results/$c.html" >"results/$c.log" 2>&1
   python3 - "$c" <<'PY'
 import json, sys
 from collections import OrderedDict
