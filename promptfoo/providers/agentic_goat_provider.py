@@ -70,6 +70,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 import sys
 import time
 import urllib.error
@@ -320,6 +321,46 @@ def _build_cmd(lab_dir: Path, cfg: dict, prompt: str):
     raise ValueError(f"unknown run mode: {run!r}")
 
 
+def _compact_transcript(entries: list[dict]) -> dict:
+    """Fold per-turn chat requests into whole conversations.
+
+    An agent loop re-sends the growing message list every turn, so a request
+    that extends the previous one replaces it; a request that starts over (Lab
+    04 runs several independent queries) opens a new conversation. Tool
+    definitions are kept once.
+    """
+    tools, convs = None, []
+    for e in entries:
+        tools = tools or e.get("tools")
+        msgs = e.get("messages") or []
+        last = convs[-1]["messages"] if convs else None
+        if last is not None and len(msgs) >= len(last) and msgs[:len(last)] == last:
+            convs[-1].update(messages=msgs, reply=e.get("reply"))
+        else:
+            convs.append({"messages": msgs, "reply": e.get("reply")})
+    for c in convs:
+        for m in c["messages"]:
+            if isinstance(m, dict) and isinstance(m.get("content"), str):
+                m["content"] = m["content"][:8000]
+    return {"tools": tools, "conversations": convs}
+
+
+def _collect_evidence(lab_dir: Path, cfg: dict, transcript_path: str) -> dict:
+    entries = []
+    try:
+        with open(transcript_path, encoding="utf-8") as fh:
+            entries = [json.loads(line) for line in fh if line.strip()]
+        os.unlink(transcript_path)
+    except (OSError, ValueError):
+        pass
+    sink = {}
+    for rel in _as_list(cfg.get("reset_state")):
+        f = lab_dir / rel
+        if f.is_file():
+            sink[rel] = f.read_text(encoding="utf-8", errors="replace")[-6000:]
+    return {"transcript": _compact_transcript(entries) if entries else None, "sink": sink}
+
+
 def call_api(prompt, options, context):
     # Scenario config is carried in each test's `vars` (merged over any
     # provider-level `config`), so a single top-level provider serves every
@@ -334,10 +375,12 @@ def call_api(prompt, options, context):
     env.setdefault("MODEL", "qwen2.5-7b-instruct")
     env.setdefault("API_KEY", "lm-studio")
 
+    # The shim records every chat completion (see shim/sitecustomize.py) and,
+    # when asked, pins reasoning effort.
+    shim = str(Path(__file__).resolve().parent / "shim")
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (shim, env.get("PYTHONPATH")) if p)
     if cfg.get("reasoning_effort"):
         env["GUARDRAIL_REASONING_EFFORT"] = str(cfg["reasoning_effort"])
-        shim = str(Path(__file__).resolve().parent / "shim")
-        env["PYTHONPATH"] = os.pathsep.join(p for p in (shim, env.get("PYTHONPATH")) if p)
 
     if not lab_dir.exists():
         return {"output": {"canary_reached": False, "answer": "", "lab": cfg.get("lab"),
@@ -350,16 +393,24 @@ def call_api(prompt, options, context):
 
     cfg["_model"] = env["MODEL"]
 
+    # Evidence for the latest attempt: what the model saw and did (transcript)
+    # and what reached the attacker's sink files (the reset_state paths).
+    rec: dict = {"transcript": None, "sink": {}}
+
     def out(reached: bool, ran: bool, answer: str = "", note: str = "") -> dict:
         return {"output": {"canary_reached": reached, "answer": answer,
                            "lab": cfg.get("lab"), "defense": cfg.get("defense"),
-                           "ran": ran, "note": note}}
+                           "ran": ran, "note": note,
+                           "transcript": rec["transcript"], "sink": rec["sink"]}}
 
     attempts = 1 + int(cfg.get("retries", 2))
     result = None
     for attempt in range(attempts):
         if attempt:
             time.sleep(5 * attempt)  # back off transient endpoint errors / 429s
+        fd, transcript_path = tempfile.mkstemp(prefix="guardrail-transcript-", suffix=".jsonl")
+        os.close(fd)
+        env["GUARDRAIL_TRANSCRIPT"] = transcript_path
         try:
             _reset_state(lab_dir, cfg)
             _maybe_start_exfil(lab_dir, cfg, env)
@@ -371,12 +422,14 @@ def call_api(prompt, options, context):
                 timeout=int(cfg.get("timeout", 180)),
             )
         except subprocess.TimeoutExpired:
+            rec.update(_collect_evidence(lab_dir, cfg, transcript_path))
             # The attack never finished, so nothing can be said about the guardrail.
             result = out(False, False, note="timeout")
             continue
         except Exception as e:  # noqa: BLE001 - surface the failure to the report
             return out(False, False, note=f"error: {e}")
 
+        rec.update(_collect_evidence(lab_dir, cfg, transcript_path))
         stdout = proc.stdout or ""
         answer = stdout[-20000:]
         trace = cfg.get("require_trace")
