@@ -48,6 +48,8 @@ guardrail-eval/
 ├── requirements.txt       # Python deps for the labs + harness
 ├── .env.example           # LLM endpoint + model (REQ-MD/ENV)
 ├── .gitmodules            # AgenticGoat pinned as a submodule (external dependency)
+├── COVERAGE.md            # all 42 catalog TC-IDs scored covered / partial / not covered
+├── dashboard/             # coverage dashboard page + the data files it reads
 └── promptfoo/
     ├── mcp.yaml           # MCP use case
     ├── rag.yaml           # RAG use case
@@ -171,6 +173,24 @@ promptfoo export eval <evalId> -o eval.json && jq -f scripts/proof.jq eval.json
 
 To browse instead of query, open `results/<config>.html` (promptfoo's static report, written
 by `run_evals.sh`) or run `promptfoo view` and expand a row's output.
+
+## Coverage dashboard
+
+The coverage dashboard (a claude.ai Artifact) charts `COVERAGE.md` and the runs under
+`eval-results/`. Its data lives in `dashboard/data/` and is rebuilt by one script:
+
+```bash
+python3 scripts/coverage_data.py --snapshot      # adds today's point to the trend
+python3 scripts/coverage_data.py --results path/to/eval-results   # other results dir
+```
+
+- `testcases.json` — one row per TC-ID: status, priority, scope, latest attack result, defense.
+- `rows.json` — every eval row in every run: attempts landed / blocked / didn't run.
+- `history.json` — dated coverage counts (the trend line). `--snapshot` upserts today's.
+
+After editing `COVERAGE.md` or landing a new run, re-run the script and upload the three files
+to the dashboard (ask Claude in the project to refresh it). `dashboard/index.html` is a copy of
+the page for review; the live page is the Artifact.
 
 ## Where this goes next
 

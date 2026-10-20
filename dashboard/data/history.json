@@ -1,0 +1,18 @@
+[
+ {
+  "date": "2026-10-19",
+  "covered": 6,
+  "partial": 4,
+  "not_covered": 32,
+  "total": 42,
+  "note": "Reconstructed from PRs #1-#4: TOOL-03 Band 1 (destructive delete) was still a documented gap"
+ },
+ {
+  "date": "2026-10-20",
+  "covered": 7,
+  "partial": 3,
+  "not_covered": 32,
+  "total": 42,
+  "note": "Snapshot of COVERAGE.md"
+ }
+]

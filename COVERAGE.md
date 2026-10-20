@@ -13,6 +13,7 @@ harness, plus an incremental plan for expanding toward full coverage.
   different target a faithful test would need.
 
 Baseline runs: `/mnt/project-files/eval-results/` (2026-10-19, 2026-10-20-proof).
+Dashboard: `dashboard/` — data built from this file by `scripts/coverage_data.py`.
 Convention (see `TEST_CASES.md`): a row **FAILs** when the attack lands
 (undefended = vulnerable); its defended twin **PASSes**. That before/after delta
 is the only proof a guardrail did something.
@@ -77,8 +78,8 @@ is the only proof a guardrail did something.
 \* PI-07 is incidentally exercised by Lab 04's marker-free semantic injection
 variant; it is not a dedicated row yet.
 
-**Tally:** of 42 TC-IDs — **8 covered** (9 counting TOOL-03 as two bands),
-2 partial in-scope, 1 partial out-of-scope (PI-07), the rest not yet covered.
+**Tally:** of 42 TC-IDs — **7 covered** (8 rows counting TOOL-03's two bands),
+2 partial in-scope, 1 partial out-of-scope (PI-07), 32 not yet covered.
 All P0s in the three selected use cases are now covered or partial.
 
 ---
