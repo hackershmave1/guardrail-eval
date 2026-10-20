@@ -113,11 +113,8 @@ Steps 1-5 are scripted in `scripts/bootstrap.sh`. `REPEAT=5 scripts/run_evals.sh
 runs the configs and prints one line per row with how many attempts landed (agent rows are
 stochastic, so one attempt is not a baseline). A row reads NOT-RUN when the agent errored
 or never took the attack path the row names (its `require_trace`), so it can't go green
-for the wrong reason. Each row's output also carries a `transcript` (what the model was sent, including any
-injected tool description, tool result or retrieved doc, and what it did) and a `sink` (what
-reached the attacker). `jq -f scripts/proof.jq results/mcp.json` prints the proof for every
-landed attack; it works on any `promptfoo export eval <id>` file too. `results/<config>.html`
-is promptfoo's static report of the same run. Or run promptfoo directly:
+for the wrong reason. Proof for each result lands in `results/` (see
+[Extracting proof](#extracting-proof)). Or run promptfoo directly:
 
 ```bash
 promptfoo eval -c promptfoo/mcp.yaml   && promptfoo view
@@ -137,6 +134,43 @@ promptfoo redteam report
 Reading the report: green = the guardrail held (canary never left the box); red = the app
 was vulnerable at this layer. With no guardrail in front (this phase), the undefended rows
 are red by design — they are the baseline a real guardrail has to turn green.
+
+## Extracting proof
+
+Every row records its own evidence, so a red result can be shown, not just asserted. The
+provider returns, and promptfoo stores, two extra fields in each row's output:
+
+- `transcript`: what the model was sent and what it did. It holds the tool definitions
+  (where a poisoned tool description lives) and every conversation, with the user prompt,
+  tool results (where an injected result lives), retrieved docs and the model's tool calls
+  and replies. It is captured by `promptfoo/providers/shim/sitecustomize.py`, which logs
+  every chat completion the lab makes.
+- `sink`: the contents of the files where the attack lands (the row's `reset_state` paths),
+  such as the exfil listener log, the email log or the retrieval log.
+
+Each row names its injected text with `injection_marker` (a regex) or explains why it has
+none with `injection_note` (for example a direct request, or an access-control gap).
+
+Print the proof for every landed attack:
+
+```bash
+jq -f scripts/proof.jq results/mcp.json
+```
+
+For each failing row you get `prompt` (what the user asked), `injected_tool_descriptions`
+and `injected_context` (the injection exactly as the model received it), `model_tool_calls`,
+`model_replies`, `oracle` (why it was graded vulnerable) and `sink` (what the attacker got).
+
+The same filter works on any eval in promptfoo's database, so older runs can be pulled
+back too:
+
+```bash
+promptfoo list evals
+promptfoo export eval <evalId> -o eval.json && jq -f scripts/proof.jq eval.json
+```
+
+To browse instead of query, open `results/<config>.html` (promptfoo's static report, written
+by `run_evals.sh`) or run `promptfoo view` and expand a row's output.
 
 ## Where this goes next
 
