@@ -1,0 +1,18 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+
+# Node / Promptfoo
+node_modules/
+.promptfoo/
+output.json
+promptfoo-errors.log
+
+# Lab runtime state / evidence (regenerated each run)
+**/state/
+**/email_log.txt
+**/exfil_log.json
+**/chroma_db/
+results/

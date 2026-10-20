@@ -1,0 +1,3 @@
+[submodule "agentic-goat"]
+	path = agentic-goat
+	url = https://github.com/aminrj-labs/agentic-goat.git
