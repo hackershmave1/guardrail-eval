@@ -1,7 +1,8 @@
 # STATUS
 
-As of 2026-10-28 · branch `notebook-demo-flow` · **6 local commits, not pushed** (on top of
-`origin/main` `1626e83`, which has not moved). Waiting for the owner's go to push and open a draft PR.
+As of 2026-10-28 · branch `notebook-demo-flow` · **pushed; draft PR #8 open against `main`**
+(https://github.com/hackershmave1/guardrail-eval/pull/8), on top of `origin/main` `1626e83`.
+Not merged. PR #7 (old coverage-dashboard builder) closed unmerged, its branch kept.
 Backup of the pre-commit state: `~/Projects/GuardRails/guardrail-eval-backup-20261028.tar.gz`
 (working tree + `.git` + `results/` + `.env`; excludes `venv/`).
 
@@ -11,7 +12,7 @@ flowchart LR
     B --> C["Operator notebook ✅<br/>guided demo first · 23 notebook tests"]
     C --> D["Code review ✅<br/>10 initial findings, 1 fixed"]
     D --> E["OOB archives wired ✅<br/>local HTTP proof + replay"]
-    E --> P["Pre-commit check ✅<br/>50 tests · lint · 9 configs valid<br/>committed locally ✅<br/>next: push + draft PR"]
+    E --> P["Pre-commit check ✅<br/>50 tests · lint · 9 configs valid<br/>draft PR #8 ✅<br/>next: owner reviews, then merge"]
     P --> F["Phase B<br/>vendor taps + adapters"]
     F --> G["Phase 2<br/>vendors in the loop"]
 ```
@@ -147,18 +148,15 @@ on a string `output`; the resample loop retries a choices-less response.
 
 ## Next steps
 
-1. **Push and draft PR (owner's go), one step at a time:** the work is committed as 6 grouped
-   commits (setup · grading rule · attack rows · results store · notebook + tests · docs). A clean
-   checkout of them passes 50/50 tests and lint. Next: `git push -u origin notebook-demo-flow`,
-   open a **draft** PR against `main`, owner reads the diff on GitHub, then merge (revertable).
+1. **Review and merge draft PR #8 (owner's go):** 6 grouped commits (setup · grading rule ·
+   attack rows · results store · notebook + tests · docs) plus this STATUS update. A clean checkout
+   passes 50/50 tests and lint. Owner reads the diff on GitHub, then: mark ready for review → merge
+   (revertable). After the merge: `git checkout main && git pull`, and branch off `main` again for
+   new work.
    Git has no `user.name` / `user.email` on this machine: commits pass
    `-c user.name=hackershmave1 -c user.email=109069139+hackershmave1@users.noreply.github.com`
    (the identity of the GitHub merges); setting it in git config is the owner's call.
-   **Open PR #7** (`claude/project-thread-9le6b9`, coverage dashboard builder) also edits
-   `COVERAGE.md` and `README.md` (conflicts for whichever merges second) and adds
-   `scripts/coverage_data.py`, which conflicts with the 2026-10-26 "do not refresh the dashboard"
-   decision. PR #7 reads an `eval-results/` folder that no longer exists. It does not block this branch; the owner
-   will decide on it after this branch merges.
+   PR #7 is closed (superseded); reopen it only if the repo-side dashboard builder is wanted again.
 2. **Visual check:** reload the notebook, restart the kernel and Run All with `RUN_LIVE = False`;
    check Part A on light and dark themes. Run live rows only in an isolated lab environment.
 3. **Demonstration follow-up:** optional live refresh of the already-retained OOB evidence,
