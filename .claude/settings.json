@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Edit(/agentic-goat/**)",
+      "Edit(/results/runs/**)",
+      "Edit(/results/guardrail_eval.db)",
+      "Edit(/promptfoo/datasets/dlp01_synthetic.yaml)",
+      "Edit(/promptfoo/datasets/dlp05_postal.yaml)",
+      "Edit(/promptfoo/datasets/jb07_dilution.yaml)",
+      "Edit(/promptfoo/web_fixtures/pages/**)",
+      "Edit(/promptfoo/web_fixtures/tests.yaml)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_edit.py\""
+          }
+        ]
+      }
+    ]
+  }
+}

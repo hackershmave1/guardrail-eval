@@ -54,9 +54,11 @@ start_websrv() {
 stop_listeners; trap 'stop_listeners; stop_slot; stop_websrv' EXIT
 configs=("${@:-mcp rag tools web memory a2a web_server model_channel}")
 for c in ${configs[@]}; do
-  # Nothing the model sees may name the test (CLAUDE.md): refuse to run a config whose
-  # prompts, seeds or canaries carry a test ID, eval vocabulary or a report label.
+  # Nothing the model sees may name the test (.claude/rules/model-facing-text.md): refuse to run
+  # a config whose prompts, seeds or canaries carry a test ID, eval vocabulary or a report label.
   python scripts/lint_prompts.py "$c" >/dev/null || { python scripts/lint_prompts.py "$c" | grep ERROR >&2; echo "!! $c: model-facing wording names the test; fix it (scripts/lint_prompts.py)" >&2; continue; }
+  # A config promptfoo can't parse would fail mid-run; check it first.
+  promptfoo validate config -c "promptfoo/$c.yaml" >/dev/null 2>&1 || { promptfoo validate config -c "promptfoo/$c.yaml" >&2; echo "!! $c: promptfoo config is invalid; fix it" >&2; continue; }
   # Headers by endpoint (EXTRA_HEADERS) must resolve, or lab rows would run without them.
   python3 scripts/run_meta.py check-headers || { echo "!! $c: EXTRA_HEADERS can't apply; fix it in .env" >&2; continue; }
   if [ "$c" = model_channel ]; then

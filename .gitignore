@@ -23,6 +23,13 @@ AI_Guardrails_POC_*.xlsx
 # Editor-local settings
 .vscode/
 
-# Claude Code local config and installed skills (per machine)
-.claude/
+# Claude Code: track the shared project setup (rules, guard settings + hooks, project skills);
+# keep per-machine files (settings.local.json, installed skills, skills-lock.json) out
+.claude/*
+!.claude/rules/
+!.claude/hooks/
+!.claude/settings.json
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/ship/
 skills-lock.json
