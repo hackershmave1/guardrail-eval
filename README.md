@@ -36,11 +36,11 @@ so each undefended baseline is red and a vendor has something to turn green.
 | **Memory / session state** | MEM-01, MEM-02, PI-08 | 05 | `promptfoo/memory.yaml` |
 | **Model channel** | PI-01, PI-05, PI-09, DLP-01, DLP-05, JB-03, JB-04, JB-06, JB-07, OUT-01, OUT-02, OUT-04 | none (the carrier model, through the guardrail slot) | `promptfoo/model_channel.yaml` |
 
-Coverage per TC-ID: [`COVERAGE.md`](./COVERAGE.md) (the source of truth; 28 of 42 covered).
-Per-row specs and results: [`TEST_CASES.md`](./TEST_CASES.md). Wiring and vendor placement:
+Coverage per TC-ID: [`docs/COVERAGE.md`](./docs/COVERAGE.md) (the source of truth; 28 of 42 covered).
+Per-row specs and results: [`docs/TEST_CASES.md`](./docs/TEST_CASES.md). Wiring and vendor placement:
 [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md). One row end to end:
 [`docs/WORKED_EXAMPLE_PI-04.md`](./docs/WORKED_EXAMPLE_PI-04.md). Prerequisites for trustworthy
-numbers: [`REQUIREMENTS.md`](./REQUIREMENTS.md). Undecided items:
+numbers: [`docs/REQUIREMENTS.md`](./docs/REQUIREMENTS.md). Undecided items:
 [`docs/OPEN_QUESTIONS.md`](./docs/OPEN_QUESTIONS.md). Current state: [`STATUS.md`](./STATUS.md).
 
 ## Layout
@@ -147,10 +147,8 @@ one row through four steps; **Part B** is the optional operator console below th
 The notebook opens with linked navigation and keeps the workflow, row list and outcome reference
 collapsed in the console. Each instruction says what to do, what to expect and where to go next.
 The selection cell distinguishes real LLM-backed execution from replay; Step 3 is the launch point
-and Step 4 only displays the completed result. Its look (outcome colours, payload,
-listener, verdict and trace panels) follows the "Operator Notebook" design system
-(https://claude.ai/artifact/NgtGjaH83zNzRPSyQ58FFJ): red means landed and nothing else, green is a
-logged block only.
+and Step 4 only displays the completed result. In its outcome colours, red means landed and
+nothing else, green is a logged block only.
 
 ```mermaid
 flowchart LR

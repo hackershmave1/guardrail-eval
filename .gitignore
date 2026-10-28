@@ -22,3 +22,7 @@ AI_Guardrails_POC_*.xlsx
 
 # Editor-local settings
 .vscode/
+
+# Claude Code local config and installed skills (per machine)
+.claude/
+skills-lock.json

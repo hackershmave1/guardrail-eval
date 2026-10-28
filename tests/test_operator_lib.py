@@ -145,7 +145,7 @@ class Refusals(unittest.TestCase):
 
 
 class LabReport(unittest.TestCase):
-    """The design-system components and the four-step demo. Read-only: replay never calls a model."""
+    """The lab-report components and the four-step demo. Read-only: replay never calls a model."""
 
     def test_every_outcome_has_a_verdict_line_and_readable_ink(self):
         for oc, (fill, _) in op.OUTCOME_STYLE.items():

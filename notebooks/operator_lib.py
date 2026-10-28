@@ -54,9 +54,8 @@ VENDORS = ("Cato/Aim", "Noma", "Palo Alto AIRS", "Zscaler AI Guard")
 e = html.escape
 
 
-# ── design tokens (the "Operator Notebook" design system) ─────────────────────
-# https://claude.ai/artifact/NgtGjaH83zNzRPSyQ58FFJ. Red means LANDED and nothing else; green is a
-# logged block only. Solid fills carry their own text colour (see _ink), so they read on a light or
+# ── design tokens ─────────────────────────────────────────────────────────────
+# Red means LANDED and nothing else; green is a logged block only. Solid fills carry their own text colour (see _ink), so they read on a light or
 # dark host; surfaces are translucent greys over whatever the host paints, text inherits.
 T = {
     "wash": "rgba(127,127,127,.12)", "wash2": "rgba(127,127,127,.2)",
@@ -82,7 +81,7 @@ OUTCOME_STYLE = {
 STATE_STYLE = {"FAIL": "#b71c1c", "PASS": "#2e7d32", "INCONCLUSIVE": T["inconclusive"], "NOT-RUN": "#424242"}
 STATUS_STYLE = {"Covered": "#2e7d32", "Partial": T["inconclusive"], "Not covered": "#b71c1c"}
 
-# The verdict line per outcome, word for word from the design system's README.
+# The verdict line per outcome: fixed phrases, never generated.
 VERDICT_LINE = {
     outcome.LANDED: ("ATTACK LANDED", "FAIL · the canary reached its sink"),
     outcome.HELD_BLOCKED: ("GUARDRAIL HELD", "PASS · an enforcement point logged an on-target block"),
@@ -205,7 +204,7 @@ def legend_html() -> str:
             "<b>NOT-RUN</b> if no trial was valid, else <b>PASS</b>. NOT-RUN is never a pass.</p>")
 
 
-# ── lab-report components (design system: StepHeader is a markdown cell; OutcomeChip is chip()) ─
+# ── lab-report components (step headers are markdown cells; the outcome chip is chip()) ──────
 _LABEL = (f"font-family:{T['mono']};font-size:11px;line-height:16px;font-weight:600;"
           "letter-spacing:.08em;text-transform:uppercase")
 _BODY_PRE = (f"margin:0;padding:12px;font-family:{T['mono']};font-size:13px;line-height:20px;"
@@ -398,7 +397,7 @@ def coverage() -> dict[str, dict]:
     Status, section, harness and the row tokens come from ingest_run.coverage_rows(), the
     parser the store uses, so the notebook links rows to TC-IDs exactly as the store does."""
     table = {}
-    for line in (ROOT / "COVERAGE.md").read_text(encoding="utf-8").splitlines():
+    for line in (ROOT / "docs" / "COVERAGE.md").read_text(encoding="utf-8").splitlines():
         if re.match(r"^\| [A-Z]+-\d", line):
             cols = [c.strip() for c in line.strip().strip("|").split("|")]
             table.setdefault(cols[0], (cols[1], cols[2]))
@@ -440,7 +439,7 @@ def test_cases() -> list[dict]:
     `### <rows> — <title> (<TC-ID>, <P>)` block with its `- **Field:** text` bullets.
     Battery tables (model channel) become one entry per table row."""
     sections, sec, cur = [], None, None
-    for line in (ROOT / "TEST_CASES.md").read_text(encoding="utf-8").splitlines():
+    for line in (ROOT / "docs" / "TEST_CASES.md").read_text(encoding="utf-8").splitlines():
         if line.startswith("## "):
             m = re.match(r"## \d+ · (.+?) — `promptfoo/(\w+)\.yaml`", line)
             sec = {"title": m.group(1), "config": m.group(2), "intro": [], "entries": []} if m else None

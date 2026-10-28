@@ -1,7 +1,7 @@
 # CLAUDE.md — guardrail-eval
 
 Rules for every session on this repo. Read this, then `STATUS.md` (where we are), then
-`COVERAGE.md` (what is covered).
+`docs/COVERAGE.md` (what is covered).
 
 ## What this project is
 
@@ -23,9 +23,9 @@ Zscaler AI Guard. Promptfoo runs the test cases from `AI_Guardrails_POC_4_2.xlsx
 | Doc | Holds |
 |---|---|
 | `STATUS.md` | Current snapshot only: where we are, the next step, what gates it |
-| `COVERAGE.md` | Status of every TC-ID (parsed by `scripts/ingest_run.py`) and how the uncovered ones get built |
-| `TEST_CASES.md` | Per-row specs: objective, harness, oracle, result |
-| `REQUIREMENTS.md` | Workbook REQ-* prerequisites and whether the repo meets them |
+| `docs/COVERAGE.md` | Status of every TC-ID (parsed by `scripts/ingest_run.py`) and how the uncovered ones get built |
+| `docs/TEST_CASES.md` | Per-row specs: objective, harness, oracle, result |
+| `docs/REQUIREMENTS.md` | Workbook REQ-* prerequisites and whether the repo meets them |
 | `docs/ARCHITECTURE.md` | Wiring, channels, vendor placement, oracles, evidence sinks |
 | `docs/OPEN_QUESTIONS.md` | Open questions, plus the log of resolved decisions |
 | `docs/RESULTS_DB.md` | Results store design and operation |
@@ -185,8 +185,9 @@ repo (`promptfoo/drivers/`, provider vars `seed_file` / `setup` / `oracle`).
 ## Layout
 
 ```
-CLAUDE.md  STATUS.md  COVERAGE.md  TEST_CASES.md  REQUIREMENTS.md  README.md
-docs/                    ARCHITECTURE.md, WORKED_EXAMPLE_PI-04.md, OPEN_QUESTIONS.md, RESULTS_DB.md
+CLAUDE.md  STATUS.md  README.md   (only these three docs stay in the main folder)
+docs/                    COVERAGE.md, TEST_CASES.md, REQUIREMENTS.md, ARCHITECTURE.md,
+                         WORKED_EXAMPLE_PI-04.md, OPEN_QUESTIONS.md, RESULTS_DB.md
 db/schema.sql, db/NNN_*.sql  results store schema (user_version = migration number) + migrations
 promptfoo/*.yaml         mcp, rag, tools, web, web_server, memory, a2a, model_channel, redteam
 promptfoo/datasets/      model-channel datasets + calibration.yaml
