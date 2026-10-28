@@ -1084,7 +1084,7 @@ def store_report(db: Path, *args: str) -> str:
 AGENTIC_GOAT = ROOT / "agentic-goat"
 _FEATURE_ORDER = (outcome.LANDED, outcome.FALSE_POSITIVE, outcome.HELD_BLOCKED, outcome.HELD_RESISTED,
                   outcome.CLEAN, outcome.NOT_DELIVERED, outcome.NOT_RUN, "ERROR")
-ORACLE_READS = {  # what each oracle looks at, for the listener step (the ladder in CLAUDE.md)
+ORACLE_READS = {  # what each oracle looks at, for the listener step (the ladder in .claude/rules/grading.md)
     "canary": "the lab's own sink files, for its canary",
     "exfil_log": "the lab's out-of-band listener on :9999",
     "http_callback": "the local web server's hit log",

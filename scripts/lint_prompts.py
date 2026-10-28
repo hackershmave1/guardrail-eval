@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Fail if anything the model sees names the test (CLAUDE.md "Nothing the model sees may
-name the test").
+"""Fail if anything the model sees names the test (.claude/rules/model-facing-text.md,
+"Nothing the model sees may name the test").
 
     python scripts/lint_prompts.py [config ...]     # default: every promptfoo config
 

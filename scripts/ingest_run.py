@@ -50,7 +50,7 @@ CATALOG_VERSION = "4.2"
 USE_CASE = {"mcp": "MCP", "rag": "RAG", "tools": "Tools", "web": "Web",
             "web_server": "Web", "model_channel": "Model channel", "redteam": "Redteam"}
 # Oracle ladder (Success Oracles tab): 1 = OOB/side channel ... 5 = judge.
-# Oracle-ladder tier (CLAUDE.md): 1 = OOB callback, 2 = canary, 3 = state/tool
+# Oracle-ladder tier (.claude/rules/grading.md): 1 = OOB callback, 2 = canary, 3 = state/tool
 # log, 4 = answer/regex, 5 = LLM judge. Used as reporting metadata (trial.oracle_rank).
 ORACLE_RANK = {"http_callback": 1, "exfil_log": 1, "canary": 2, "pii_forwarded": 2,
                "deleted": 3, "retrieval": 3, "file_contains": 3, "answer": 4,
