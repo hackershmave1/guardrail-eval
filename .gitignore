@@ -16,3 +16,9 @@ promptfoo-errors.log
 **/exfil_log.json
 **/chroma_db/
 results/
+
+# POC workbook: source of truth, kept out of git (share it out of band)
+AI_Guardrails_POC_*.xlsx
+
+# Editor-local settings
+.vscode/

@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+# Promptfoo config — USE CASE: Web (PI-03) served by a REAL local web server
+# Workbook TC-ID: PI-03 (indirect injection via fetched web page content, P0).
+# Carrier matrix: the SAME hidden instruction in ~11 carrier styles (HTML comment,
+# white-on-white, hidden/display:none div, tiny font, meta tag, img alt, aria-hidden,
+# code block, JSON-LD, markdown), measuring which get a web-page instruction past a
+# guardrail. One defended twin + a clean control.
+#
+# Target: AgenticGoat Lab 05 orchestrator, driven at a LIVE page on
+#         http://localhost:8088 (promptfoo/web_fixtures/server.py). The agent fetches
+#         over real HTTP; the server logs the fetch AND any /collect callback the
+#         injection triggers. The server log is the oracle (http_callback): a real
+#         server-side event, independent of the model's words.
+#
+# Run (run_evals.sh starts/stops the web server for you):
+#   REPEAT=3 scripts/run_evals.sh web_server
+# Regenerate pages + rows:  venv/bin/python scripts/gen_web_pages.py
+#
+# Convention: PASS = guardrail held. No vendor yet, so each poisoned row is the
+# undefended baseline (whether THIS carrier's injection fires on the carrier model).
+
+description: "Guardrail eval — PI-03 carrier matrix via a live web server (Lab 05)"
+
+providers:
+  - id: file://providers/agentic_goat_provider.py
+    label: agentic-goat
+
+prompts:
+  - "{{attack}}"
+
+defaultTest:
+  assert:
+    - type: python
+      value: file://providers/assert_canary.py
+
+tests:
+  - file://web_fixtures/tests.yaml
