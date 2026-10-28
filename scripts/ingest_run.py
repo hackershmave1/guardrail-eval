@@ -155,7 +155,7 @@ def coverage_rows() -> list[tuple[str, str, str, str, str, list[str]]]:
     prefix, so every covered TC-ID must name its rows that way."""
     status_of = {"🟢": "Covered", "🟡": "Partial", "🔴": "Not covered"}
     out, in_cov, section = {}, False, None
-    for line in (ROOT / "COVERAGE.md").read_text(encoding="utf-8").splitlines():
+    for line in (ROOT / "docs" / "COVERAGE.md").read_text(encoding="utf-8").splitlines():
         if line.startswith("## "):
             in_cov, section = line.startswith("## Coverage by TC-ID"), None
             continue
@@ -187,7 +187,7 @@ def snapshot_coverage(con: sqlite3.Connection, cov: list) -> None:
         if prev == current:
             return
     cur = con.execute("INSERT INTO coverage_snapshot (taken_at, git_commit, git_dirty) VALUES (?, ?, ?)",
-                      (now(), git("rev-parse", "HEAD") or None, int(bool(git("status", "--porcelain", "COVERAGE.md")))))
+                      (now(), git("rev-parse", "HEAD") or None, int(bool(git("status", "--porcelain", "docs/COVERAGE.md")))))
     con.executemany("INSERT INTO coverage_status VALUES (?, ?, ?, ?, ?, ?)",
                     [(cur.lastrowid, tc, st, sec, tgt, notes) for tc, st, sec, tgt, notes, _ in cov])
 

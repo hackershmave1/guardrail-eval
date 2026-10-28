@@ -3,7 +3,7 @@
 Per-row specs for every eval row: what it attacks, how it is graded, and its undefended
 baseline. Every row cites a workbook TC-ID (`AI_Guardrails_POC_4_2.xlsx`, v4.2). Status per
 TC-ID lives in [`COVERAGE.md`](./COVERAGE.md); wiring and vendor placement in
-[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md); the REQ-* prerequisites the rows rest on in
+[`docs/ARCHITECTURE.md`](./ARCHITECTURE.md); the REQ-* prerequisites the rows rest on in
 [`REQUIREMENTS.md`](./REQUIREMENTS.md).
 
 ```mermaid
