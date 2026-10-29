@@ -7,7 +7,9 @@
 #                   row's injection_marker), the model's tool calls, the sink
 #   false_positive  FALSE_POSITIVE: the benign control and what blocked it
 #   not_run         NOT_RUN / NOT_DELIVERED: why the trial can't be judged
-[.results.results[] | {r: ., o: (.response.output.outcome // "ERROR")}] as $all
+# A provider error leaves `output` a string (or absent); it reads as {} and lands in not_run.
+[.results.results[] | (.response.output |= (if type == "object" then . else {} end))
+  | {r: ., o: (.response.output.outcome // "ERROR")}] as $all
 | {
   landed: [$all[] | select(.o == "LANDED") | .r
     | (.testCase.vars.injection_marker // "^$") as $m

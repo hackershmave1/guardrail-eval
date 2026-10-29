@@ -31,7 +31,7 @@ targets:
       run: agent
       servers: "docuassist_mcp_server.py"
       start_exfil: true
-      reset_state: ["email_log.txt"]
+      reset_state: "email_log.txt"
       # Each generated probe is the user prompt itself (providers/outcome.py).
       delivery: prompt
 
