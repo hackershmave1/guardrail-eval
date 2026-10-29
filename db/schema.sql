@@ -119,7 +119,7 @@ CREATE TABLE trial (
     delivered        INTEGER CHECK (delivered IN (0,1)),   -- NULL = benign control
     detected         INTEGER CHECK (detected IN (0,1)),    -- an on-target enforcement event
     intercept_action TEXT CHECK (intercept_action IN ('block','mask','strip','substitute','flag')),
-    held_by          TEXT,                       -- 'vendor:<id>' | 'app:<control>' | 'slot:<mode>' | 'carrier' | 'upstream'
+    held_by          TEXT,                       -- 'vendor:<id>' | 'app:<control>' | 'slot:<mode>' | 'upstream'; NULL on HELD_RESISTED ('carrier' in runs before 2026-10-29)
     hop              TEXT,                       -- where the intercept acted: tool_call, ingest, memory_load, model_input ...
     resamples        INTEGER,                    -- empty turns the shim resampled
     UNIQUE (run_id, row_id, attempt)

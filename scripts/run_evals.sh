@@ -16,7 +16,8 @@
 # REPEAT>1 runs each row n times and the line reports how many attempts landed.
 # model_channel needs the guardrail slot (promptfoo/guardrail_slot/proxy.py) on :8787;
 # web_server needs the PI-03 web server (promptfoo/web_fixtures/server.py) on :8088.
-# This script starts/stops each for its config.
+# This script starts/stops each for its config. A server already on :8088 is reused only if it
+# logs to results/web_server/. Exits 1 if any config was refused or wrote no results (`!!` lines).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 . venv/bin/activate
@@ -43,8 +44,16 @@ start_slot() {
 WEBSRV_PID=""
 stop_websrv() { [ -n "$WEBSRV_PID" ] && kill "$WEBSRV_PID" 2>/dev/null; WEBSRV_PID=""; true; }
 start_websrv() {
-  # Already up (you started it in a terminal to watch hits live): use it.
-  curl -sf localhost:8088/health >/dev/null && { echo "web server already on :8088, reusing it" >&2; return 0; }
+  # Already up (you started it in a terminal to watch hits live): use it, but only if it
+  # logs where the http_callback oracle reads. One that logs elsewhere would swallow a
+  # landed callback (false PASS), so a unique probe must show up in our hits.jsonl.
+  if curl -sf localhost:8088/health >/dev/null; then
+    probe="probe-$(date +%s%N)"
+    curl -sf "localhost:8088/health?$probe" >/dev/null
+    grep -qs "$probe" results/web_server/hits.jsonl && { echo "web server already on :8088, reusing it" >&2; return 0; }
+    echo "a server on :8088 does not log to results/web_server/; stop it or start it with WEB_FIXTURES_LOG_DIR=$PWD/results/web_server" >&2
+    return 1
+  fi
   WEB_FIXTURES_LOG_DIR="$PWD/results/web_server" python promptfoo/web_fixtures/server.py >results/web_server.out 2>&1 &
   WEBSRV_PID=$!
   for _ in $(seq 40); do curl -sf localhost:8088/health >/dev/null && return 0; sleep 0.25; done
@@ -52,22 +61,25 @@ start_websrv() {
   echo "web fixtures server did not come up (see results/web_server.out)" >&2; stop_websrv; return 1
 }
 stop_listeners; trap 'stop_listeners; stop_slot; stop_websrv' EXIT
+# Exit 1 if any config was refused or produced no results (the `!!` lines say which).
+rc=0
 configs=("${@:-mcp rag tools web memory a2a web_server model_channel}")
 for c in ${configs[@]}; do
   # Nothing the model sees may name the test (.claude/rules/model-facing-text.md): refuse to run
-  # a config whose prompts, seeds or canaries carry a test ID, eval vocabulary or a report label.
-  python scripts/lint_prompts.py "$c" >/dev/null || { python scripts/lint_prompts.py "$c" | grep ERROR >&2; echo "!! $c: model-facing wording names the test; fix it (scripts/lint_prompts.py)" >&2; continue; }
+  # a config whose prompts, seeds or canaries carry a test ID, eval vocabulary or a report label,
+  # or whose vars hold a YAML list (promptfoo would split the row).
+  python scripts/lint_prompts.py "$c" >/dev/null || { python scripts/lint_prompts.py "$c" | grep ERROR >&2; echo "!! $c: lint_prompts refused the config; fix it (scripts/lint_prompts.py)" >&2; rc=1; continue; }
   # A config promptfoo can't parse would fail mid-run; check it first.
-  promptfoo validate config -c "promptfoo/$c.yaml" >/dev/null 2>&1 || { promptfoo validate config -c "promptfoo/$c.yaml" >&2; echo "!! $c: promptfoo config is invalid; fix it" >&2; continue; }
+  promptfoo validate config -c "promptfoo/$c.yaml" >/dev/null 2>&1 || { promptfoo validate config -c "promptfoo/$c.yaml" >&2; echo "!! $c: promptfoo config is invalid; fix it" >&2; rc=1; continue; }
   # Headers by endpoint (EXTRA_HEADERS) must resolve, or lab rows would run without them.
-  python3 scripts/run_meta.py check-headers || { echo "!! $c: EXTRA_HEADERS can't apply; fix it in .env" >&2; continue; }
+  python3 scripts/run_meta.py check-headers || { echo "!! $c: EXTRA_HEADERS can't apply; fix it in .env" >&2; rc=1; continue; }
   if [ "$c" = model_channel ]; then
     : >results/slot_log.jsonl
-    start_slot || continue
+    start_slot || { echo "!! $c: guardrail slot did not start" >&2; rc=1; continue; }
   fi
   if [ "$c" = web_server ]; then
     venv/bin/python scripts/gen_web_pages.py >/dev/null   # keep pages+rows fresh
-    start_websrv || continue
+    start_websrv || { echo "!! $c: web fixtures server unusable" >&2; rc=1; continue; }
   fi
   # Lab rows share lab state and the :9999 listener, so one at a time; model-
   # channel rows are stateless (unique trial ids), so they can run in parallel.
@@ -96,5 +108,7 @@ for c in ${configs[@]}; do
     python3 scripts/summarize.py "$c" "$run_dir/$c.json"
   else
     echo "!! $c: promptfoo wrote no results (exit $code) — see $run_dir/$c.log; results/$c.* and summary left unchanged" >&2
+    rc=1
   fi
 done
+exit "$rc"

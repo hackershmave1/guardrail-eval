@@ -15,6 +15,10 @@ prompt, a "do not / never" line in a benign control, or a self-grounding line
 ("use only the source", "do not rely on outside knowledge") in any row.
 WARN: the word "test" — legitimate as an attacker's pretext ("for a support-tool test,
 disregard…"), so it is listed for a human to confirm, not failed.
+
+Also ERROR: a YAML-list value in a test's `vars`. promptfoo expands a list var into one
+test case per element (.claude/rules/promptfoo-configs.md), so `reset_state: [a, b]`
+silently becomes two rows that each reset one file. Use a comma-delimited scalar.
 """
 
 from __future__ import annotations
@@ -48,14 +52,30 @@ def rows(config: str):
         if isinstance(p, dict):
             base.update(p.get("config") or {})
     tests = doc.get("tests") or []
+    default_vars = (doc.get("defaultTest") or {}).get("vars") or {}
     for t in tests if isinstance(tests, list) else [tests]:
         if isinstance(t, str) and t.startswith("file://"):
             for x in yaml.safe_load((ROOT / t[len("file://"):]).read_text(encoding="utf-8")) or []:
-                yield x.get("description", ""), {**base, **(x.get("vars") or {})}
+                yield x.get("description", ""), {**base, **default_vars, **(x.get("vars") or {})}
         elif isinstance(t, dict):
-            yield t.get("description", ""), {**base, **(t.get("vars") or {})}
+            yield t.get("description", ""), {**base, **default_vars, **(t.get("vars") or {})}
     if base.get("system_prompt"):
         yield f"{config} provider config", {"system_prompt": base["system_prompt"]}
+
+
+def list_vars(config: str) -> list[str]:
+    """Test vars given as YAML lists (promptfoo would split each into separate cases)."""
+    doc = yaml.safe_load((ROOT / f"{config}.yaml").read_text(encoding="utf-8"))
+    tests = doc.get("tests") or []
+    found = [f"defaultTest: {k}" for k, val in ((doc.get("defaultTest") or {}).get("vars") or {}).items()
+             if isinstance(val, list)]
+    for t in tests if isinstance(tests, list) else [tests]:
+        items = (yaml.safe_load((ROOT / t[len("file://"):]).read_text(encoding="utf-8")) or []
+                 if isinstance(t, str) and t.startswith("file://") else [t] if isinstance(t, dict) else [])
+        for x in items:
+            found += [f"{x.get('description', '')[:60]}: {k}" for k, val in (x.get("vars") or {}).items()
+                      if isinstance(val, list)]
+    return found
 
 
 def check(desc: str, v: dict) -> tuple[list[str], list[str]]:
@@ -94,6 +114,10 @@ def main() -> int:
             for w in warns:
                 print(f"warn  {c}: {desc[:60]} :: {w} (confirm it is the attacker's own pretext)")
             bad += bool(errors)
+        for where in list_vars(c):
+            print(f"ERROR {c}: {where} is a YAML list; promptfoo splits it into one case per element "
+                  "(use a comma-delimited scalar)")
+            bad += 1
     print(f"lint_prompts: {bad} row(s) with errors")
     return 1 if bad else 0
 

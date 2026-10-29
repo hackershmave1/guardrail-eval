@@ -169,7 +169,9 @@ if _transcript:
                 if kwargs.get("stream") or n >= _resample or not _empty(response):
                     return response
                 choices = getattr(response, "choices", None) or []
-                if choices and choices[0].finish_reason in ("content_filter", "length"):
+                # No choices = an endpoint error, not an empty turn: hand it to the lab
+                # (its crash reads NOT-RUN and the provider retries the attempt).
+                if not choices or choices[0].finish_reason in ("content_filter", "length"):
                     return response
                 n += 1
 
