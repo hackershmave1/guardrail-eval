@@ -143,9 +143,9 @@ oracle grades every probe alongside promptfoo's own graders.
 ## Operator notebook
 
 `notebooks/operator.ipynb` does the same without the CLI, as a live lab report. **Part A** takes
-one row through four steps; **Part B** is the optional operator console below the demonstration.
-The notebook opens with linked navigation and keeps the workflow, row list and outcome reference
-collapsed in the console. Each instruction says what to do, what to expect and where to go next.
+one row through four steps; **Part B** runs a full evaluation: set up a target, run every test
+case, review the proof. The notebook opens with linked navigation and keeps the reference material
+folded at the end. Each instruction says what to do, what to expect and where to go next.
 The selection cell distinguishes real LLM-backed execution from replay; Step 3 is the launch point
 and Step 4 only displays the completed result. In its outcome colours, red means landed and
 nothing else, green is a logged block only.
@@ -197,22 +197,39 @@ together. A replay's historical inputs can differ from the current config previe
   Historical runs cannot acquire evidence they never captured. Live OOB streaming is not implemented;
   results do not depend on watching the run live.
 
-**Part B · Operator console:**
-- **Test cases:** every TC-ID with its status, and a card per TC-ID parsed live from
-  `COVERAGE.md`, `TEST_CASES.md` and the workbook catalog in the store (objective, success
-  criterion, attack, oracle, delivery proof, twin, baseline, what a vendor must do).
-- **Settings:** every variable the harness reads, its value and source. Non-secrets can be
-  overridden for the next launch; `.env` is never written. Secrets and header values show as set
-  / not set only.
-- **Run:** by TC-ID, row or config, with REPEAT and an editable FILTER. **Scratch** (default) sets
-  `RUNS_DIR` / `RESULTS_DB` to `results/scratch/`, so the store, `results/runs/` and
-  `results/<config>.*` stay untouched. **Real** appends to the store after a confirmation. One
-  run at a time; Stop kills only that run's process group. A run counts only if it wrote graded
-  rows (the exit code is not trusted).
-- **Results:** outcome counts, the three rates, INCONCLUSIVE / STALE flags, held_by / hop, twins
-  against the same run_id, and any trial as a lab report (verdict box, trace, delivery proof, sink). Rates come
-  from the store's `v_row_run` view; nothing is graded in the notebook.
-- **Guardrail:** `none` only in Phase 1; the vendors are listed for Phase 2.
+**Part B · Operator evaluation:** three stages, each a panel, then a folded reference.
+
+```mermaid
+flowchart LR
+    B1["B1 · Set up<br/>machine checks · target profile<br/>needs set / not set · connection"] --> B2["B2 · Run<br/>all · TC-ID · row · rerun pick<br/>REPEAT · scratch or real · progress"]
+    B2 --> B3["B3 · Review<br/>verdict per TC-ID · rows to act on<br/>trial: how the verdict was decided"]
+    B3 -. rerun pick .-> B2
+```
+
+- **B1 · Set up:** machine readiness (venv, promptfoo, jq, submodule, Lab 01's npm packages, `.env`,
+  ports, a clean submodule), then the **target profile**: *Model direct* (the undefended baseline),
+  *Gateway · proxy mode* (lab rows and the slot send every model call to `GATEWAY_BASE_URL`), or
+  *Guardrail API · direct scan* (`GUARDRAIL_API_URL`). For a vendor, the vendor, product and version
+  make the `guardrail_id` every run records. Each variable the profile needs shows as set / not set
+  with the `.env` line to add; keys live only in `.env`, which the notebook never writes. An optional
+  connection check makes one short model call through the chosen path. Gateway and Guardrail API
+  profiles are **gated** until their Phase B adapter exists: they can be set up and checked, but a
+  launch is refused, because a vendor block would not yet be graded as one.
+- **B2 · Run:** all test cases (every config, one run_id each), a TC-ID, a row, a config, or the
+  rerun pick B3 sends; REPEAT; **scratch** (default: `results/scratch/`, the store untouched) or
+  **real** (appended after a confirmation). It shows the trial estimate, any refusal, then progress
+  per config while it runs; the harness log is folded. One run at a time; Stop kills only that run's
+  process group. A run counts only if it wrote graded rows.
+- **B3 · Review:** pick a source (this session's runs, the latest result per row for a guardrail, or
+  one run). A verdict per TC-ID (FAIL if any attack row landed, INCONCLUSIVE if a row could not be
+  judged) with blocked / resisted / NOT-RUN counts and the detection rate; benign controls and app
+  twins beside it. **To act on** lists unjudged rows, false positives, stale twins and broken
+  calibration, and sends the unjudged ones back to B2. Filter trials by outcome, TC-ID or row; a
+  trial shows its verdict, **how the verdict was decided** (ran → oracle → delivered → natural end →
+  enforcement, then the rule that applied), the six-step trace and the per-attempt OOB evidence.
+  Nothing is graded in the notebook: outcomes are the provider's, rates come from `v_row_run`.
+- **Reference (folded):** workflow, outcome reference, the test-case catalog, demo rows for Part A,
+  the store report and known issues.
 
 Gateways that need their own header (a local LLM gateway's model selector, a vendor's project
 id) take it from `EXTRA_HEADERS` in `.env`, keyed by endpoint (see `.env.example`). A table that
