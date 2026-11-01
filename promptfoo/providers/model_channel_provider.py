@@ -61,8 +61,8 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "guardrail_slot"))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).absolute().parents[1] / "guardrail_slot"))
+sys.path.insert(0, str(Path(__file__).absolute().parent))
 import outcome  # noqa: E402  (one grading rule)
 from proxy import ENV, LOG_PATH  # noqa: E402  (one .env parser, one log path)
 

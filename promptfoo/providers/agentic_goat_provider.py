@@ -125,8 +125,8 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "guardrail_slot"))
+sys.path.insert(0, str(Path(__file__).absolute().parent))
+sys.path.insert(0, str(Path(__file__).absolute().parents[1] / "guardrail_slot"))
 import outcome  # noqa: E402 - sibling module, one grading rule
 from proxy import load_dotenv  # noqa: E402 - one .env parser
 
