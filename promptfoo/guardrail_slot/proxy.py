@@ -41,15 +41,21 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).absolute().parents[2]
 _LOG_LOCK = threading.Lock()
 sys.path.insert(0, str(REPO_ROOT / "promptfoo" / "providers" / "shim"))
 import extra_headers  # noqa: E402  (one per-endpoint header parser, shared with the shim)
 
 
+def _dotenv_value(val: str) -> str:
+    """A quoted value up to its closing quote; else the value before an inline ` # comment`."""
+    if val[:1] in ("\"", "'") and val.count(val[0]) >= 2:
+        return val[1:val.index(val[0], 1)]
+    return re.split(r"\s+#", val)[0].strip()
+
+
 def load_dotenv(env: dict) -> None:
-    """Fill missing keys from the repo's .env. Strips inline `# comments` on
-    unquoted values (the .env carries `MODEL=x   # note`)."""
+    """Fill missing keys from the repo's .env (the .env carries `MODEL=x   # note`)."""
     try:
         lines = (REPO_ROOT / ".env").read_text(encoding="utf-8").splitlines()
     except OSError:
@@ -59,13 +65,9 @@ def load_dotenv(env: dict) -> None:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, _, val = line.partition("=")
-        key, val = key.strip(), val.strip()
-        if val[:1] in "\"'" and val[:1] and val.count(val[0]) >= 2:
-            val = val[1:val.index(val[0], 1)]
-        else:
-            val = re.split(r"\s+#", val, maxsplit=1)[0].strip()
+        key = key.strip()
         if key and key not in env:
-            env[key] = val
+            env[key] = _dotenv_value(val.strip())
 
 
 ENV = dict(os.environ)
@@ -91,13 +93,8 @@ _INJECTION = re.compile(
 
 
 def _luhn_ok(digits: str) -> bool:
-    total, alt = 0, False
-    for ch in reversed(digits):
-        d = int(ch)
-        if alt:
-            d = d * 2 - 9 if d > 4 else d * 2
-        total, alt = total + d, not alt
-    return total % 10 == 0
+    doubled = (int(c) * 2 if i % 2 else int(c) for i, c in enumerate(reversed(digits)))
+    return sum(d - 9 if d > 9 else d for d in doubled) % 10 == 0
 
 
 def _iban_ok(iban: str) -> bool:
@@ -113,6 +110,12 @@ def _mask_text(text: str) -> str:
     return _EMAIL.sub("[EMAIL]", text)
 
 
+def _user_texts(body: dict) -> list[dict]:
+    """The user messages whose content is a plain string: all the demo guardrail reads."""
+    return [m for m in body.get("messages", [])
+            if isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str)]
+
+
 def scan_input(body: dict, mode: str) -> tuple[str, dict, str]:
     """Return (action, body_to_forward, reason). action: allow | mask | block.
 
@@ -121,17 +124,14 @@ def scan_input(body: dict, mode: str) -> tuple[str, dict, str]:
     """
     if mode != "demo":
         return "allow", body, ""
-    user_text = " ".join(m.get("content") or "" for m in body.get("messages", [])
-                         if isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str))
-    if _INJECTION.search(user_text):
+    if _INJECTION.search(" ".join(m["content"] for m in _user_texts(body))):
         return "block", body, "demo: injection keywords"
     out = json.loads(json.dumps(body))
     changed = False
-    for m in out.get("messages", []):
-        if isinstance(m, dict) and m.get("role") == "user" and isinstance(m.get("content"), str):
-            masked = _mask_text(m["content"])
-            changed |= masked != m["content"]
-            m["content"] = masked
+    for m in _user_texts(out):
+        masked = _mask_text(m["content"])
+        changed |= masked != m["content"]
+        m["content"] = masked
     return ("mask" if changed else "allow"), out, ("demo: masked PII" if changed else "")
 
 
@@ -146,6 +146,44 @@ def _log(entry: dict) -> None:
     LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _LOG_LOCK, LOG_PATH.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def _elapsed_ms(started: float) -> int:
+    return round((time.time() - started) * 1000)
+
+
+def _call_upstream(body: dict, authorization: str | None) -> tuple[int, bytes]:
+    """POST the body to the model; (status, raw reply). Raises when the upstream is unreachable."""
+    url = UPSTREAM + "/chat/completions"
+    req = urllib.request.Request(
+        url, data=json.dumps(body).encode(), method="POST",
+        headers={"Content-Type": "application/json",
+                 "Authorization": authorization or f"Bearer {API_KEY}",
+                 **extra_headers.for_url(EXTRA_HEADERS, url)})
+    try:
+        with urllib.request.urlopen(req, timeout=180) as resp:
+            return resp.status, resp.read()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()
+
+
+def _parse_reply(raw: bytes) -> dict:
+    try:
+        return json.loads(raw)
+    except ValueError:
+        return {"raw": raw.decode(errors="replace")[:2000]}
+
+
+def _model_turn(forwarded: dict, mode: str, authorization: str | None) -> tuple[int, dict, object]:
+    """Forward an allowed request: (status, reply to send, reply to log)."""
+    try:
+        status, raw = _call_upstream(forwarded, authorization)
+    except Exception as e:  # noqa: BLE001 - upstream unreachable
+        return 502, {"error": {"type": "upstream_unreachable", "message": str(e)}}, str(e)
+    reply = _parse_reply(raw)
+    if status == 200:
+        _, reply = scan_output(reply, mode)
+    return status, reply, reply
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -171,45 +209,21 @@ class Handler(BaseHTTPRequestHandler):
         if not self.path.rstrip("/").endswith("/chat/completions"):
             return self._send(404, {"error": f"slot only proxies chat/completions, got {self.path}"})
         started = time.time()
-        trial_id = self.headers.get("X-Trial-Id")
-        mode = self.headers.get("X-Guardrail-Mode") or DEFAULT_MODE
         try:
             body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         except ValueError:
             return self._send(400, {"error": "body is not JSON"})
 
+        mode = self.headers.get("X-Guardrail-Mode") or DEFAULT_MODE
         action, forwarded, reason = scan_input(body, mode)
-        entry = {"ts": started, "trial_id": trial_id, "mode": mode, "action": action,
-                 "reason": reason, "received": body, "forwarded": None, "status": None, "reply": None}
         if action == "block":
-            entry.update(status=403, latency_ms=round((time.time() - started) * 1000))
-            _log(entry)
-            return self._send(403, {"error": {"type": "guardrail_blocked", "message": reason}})
-
-        entry["forwarded"] = forwarded
-        req = urllib.request.Request(
-            UPSTREAM + "/chat/completions", data=json.dumps(forwarded).encode(), method="POST",
-            headers={"Content-Type": "application/json",
-                     "Authorization": self.headers.get("Authorization") or f"Bearer {API_KEY}",
-                     **extra_headers.for_url(EXTRA_HEADERS, UPSTREAM + "/chat/completions")})
-        try:
-            with urllib.request.urlopen(req, timeout=180) as resp:
-                status, raw = resp.status, resp.read()
-        except urllib.error.HTTPError as e:
-            status, raw = e.code, e.read()
-        except Exception as e:  # noqa: BLE001 - upstream unreachable
-            entry.update(status=502, reply=str(e), latency_ms=round((time.time() - started) * 1000))
-            _log(entry)
-            return self._send(502, {"error": {"type": "upstream_unreachable", "message": str(e)}})
-
-        try:
-            reply = json.loads(raw)
-        except ValueError:
-            reply = {"raw": raw.decode(errors="replace")[:2000]}
-        if status == 200:
-            _, reply = scan_output(reply, mode)
-        entry.update(status=status, reply=reply, latency_ms=round((time.time() - started) * 1000))
-        _log(entry)
+            forwarded, status, logged = None, 403, None
+            reply = {"error": {"type": "guardrail_blocked", "message": reason}}
+        else:
+            status, reply, logged = _model_turn(forwarded, mode, self.headers.get("Authorization"))
+        _log({"ts": started, "trial_id": self.headers.get("X-Trial-Id"), "mode": mode, "action": action,
+              "reason": reason, "received": body, "forwarded": forwarded, "status": status,
+              "reply": logged, "latency_ms": _elapsed_ms(started)})
         self._send(status, reply)
 
 
