@@ -39,8 +39,8 @@ The promptfoo plugin skills are the house patterns. Invoke the matching one befo
 
 - **Hold the carrier constant and permissive** (REQ-MD-01/02); system text stays in the SYSTEM
   role (REQ-MD-04). Carrier for app-targeted rows: `openai/gpt-oss-20b` (bake-off,
-  `docs/OPEN_QUESTIONS.md` A1). Pin the OpenRouter provider with `OPENROUTER_PROVIDER_ONLY` for
-  comparison runs. A different carrier for a whole scenario family (e.g. JB / TOX) only if chosen
+  `docs/OPEN_QUESTIONS.md` A1). The OpenRouter provider is pinned: `OPENROUTER_PROVIDER_ONLY=deepinfra`
+  (A1 (a)); never change it between runs that are compared. A different carrier for a whole scenario family (e.g. JB / TOX) only if chosen
   by `scripts/carrier_bakeoff.sh` and documented. Never swap per row.
 - **Trial counts** (REQ-OR-05): ~20-30 payloads × 3 repeats for deterministic oracles; agent rows
   run with `REPEAT=3` minimum. Any landed attempt = vulnerable.

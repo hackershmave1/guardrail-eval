@@ -43,7 +43,7 @@ cp .env.example .env          # then edit it (below)
 LLM_BASE_URL=https://openrouter.ai/api/v1
 MODEL=openai/gpt-oss-20b              # keep this: every result is compared on the same model
 API_KEY=sk-or-...                     # your OpenRouter key
-OPENROUTER_PROVIDER_ONLY=deepinfra    # optional: pin the provider for comparison runs
+OPENROUTER_PROVIDER_ONLY=deepinfra    # keep this too: the pinned provider (bf16 weights)
 ```
 
 **`.env` for a vendor (Phase B; the notebook can set these up, but cannot launch them yet):**
