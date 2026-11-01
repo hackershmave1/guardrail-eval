@@ -45,7 +45,8 @@ class Listener(unittest.TestCase):
     def start(self, pids, port, cfg=None):
         """Run with these listeners found in /proc and this sequence of port probes."""
         self.stub(provider, "_exfil_pids", return_value=pids)
-        self.port = self.stub(provider, "_port_up", side_effect=list(port))
+        probes = {"return_value": port} if isinstance(port, bool) else {"side_effect": list(port)}
+        self.port = self.stub(provider, "_port_up", **probes)
         provider._maybe_start_exfil(self.lab, {"start_exfil": True} if cfg is None else cfg, self.env)
 
 
@@ -103,6 +104,26 @@ class Takeover(Listener):
     def test_waits_for_ours_to_come_up(self):
         self.start([], [False, False, False, True])
         self.assertEqual(self.port.call_count, 4)
+
+
+class NotGuaranteed(Listener):
+    """No listener of ours on :9999 means the exfil has no sink: NOT-RUN, never a held row."""
+
+    def test_port_held_by_something_we_did_not_stop(self):
+        with self.assertRaisesRegex(RuntimeError, ":9999 is still held"):
+            self.start([], True)
+        self.popen.assert_not_called()
+
+    def test_lab_without_a_listener_script(self):
+        self.ours.unlink()
+        with self.assertRaisesRegex(RuntimeError, "no exfil_server.py"):
+            self.start([(12, str(self.other))], [False, True])
+        self.kill.assert_not_called()
+
+    def test_listener_that_never_comes_up(self):
+        with self.assertRaisesRegex(RuntimeError, "did not come up on :9999"):
+            self.start([], False)
+        self.popen.assert_called_once()
 
 
 if __name__ == "__main__":

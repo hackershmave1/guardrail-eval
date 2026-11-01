@@ -422,6 +422,43 @@ def _port_up() -> bool:
         return False
 
 
+def _stop_other_listeners(ours: Path) -> bool:
+    """SIGTERM every other lab's exfil_server.py. True when ours is already running."""
+    have_ours = False
+    for pid, script in _exfil_pids():
+        if Path(script).is_absolute() and Path(script).resolve() == ours.resolve():
+            have_ours = True
+            continue
+        try:
+            os.kill(pid, 15)
+        except OSError:
+            pass  # already gone
+    return have_ours
+
+
+def _wait_for(port_up: bool, tries: int) -> bool:
+    """Poll :9999 every 0.25 s until it is (or stops) answering. True when it got there."""
+    for _ in range(tries):
+        if _port_up() == port_up:
+            return True
+        time.sleep(0.25)
+    return False
+
+
+def _launch_listener(lab_dir: Path, ours: Path, env: dict) -> None:
+    # Keep the listener's "EXFILTRATION RECEIVED" banners: tail -f this file
+    # to watch callbacks land live (-u so they aren't stuck in a buffer).
+    live = REPO_ROOT / "results" / "listeners" / f"{lab_dir.name}.log"
+    live.parent.mkdir(parents=True, exist_ok=True)
+    with live.open("a", encoding="utf-8") as fh:
+        subprocess.Popen(
+            [sys.executable, "-u", str(ours)],
+            cwd=str(lab_dir), env=env,
+            stdout=fh, stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+
+
 def _maybe_start_exfil(lab_dir: Path, cfg: dict, env: dict) -> None:
     """REQ-OR-02: this lab's OOB listener must own localhost:9999 before a run.
 
@@ -430,45 +467,23 @@ def _maybe_start_exfil(lab_dir: Path, cfg: dict, env: dict) -> None:
     into the wrong log, so the canary never trips and the row reads as a false
     PROTECTED (seen 2026-10-19: Lab 06 posting into Lab 01's listener). So kill
     any other lab's listener and start ours.
+
+    Raises RuntimeError (call_api reports NOT-RUN) when it cannot guarantee
+    that: with no listener of ours on :9999 the exfil has no sink, and the
+    driver's swallowed POST failure would read as a held row.
     """
     if not cfg.get("start_exfil"):
         return
     ours = lab_dir / "exfil_server.py"
-    have_ours = False
-    for pid, script in _exfil_pids():
-        try:
-            same = Path(script if Path(script).is_absolute() else "/nonexistent").resolve() == ours.resolve()
-        except OSError:
-            same = False
-        if same:
-            have_ours = True
-            continue
-        try:
-            os.kill(pid, 15)
-        except OSError:
-            pass
-    if have_ours and _port_up():
+    if not ours.exists():
+        raise RuntimeError(f"start_exfil is set but {lab_dir.name} has no exfil_server.py: the exfil has no sink")
+    if _stop_other_listeners(ours) and _port_up():
         return
-    for _ in range(20):  # wait for the old listener to release the port
-        if not _port_up():
-            break
-        time.sleep(0.25)
-    if ours.exists():
-        # Keep the listener's "EXFILTRATION RECEIVED" banners: tail -f this file
-        # to watch callbacks land live (-u so they aren't stuck in a buffer).
-        live = REPO_ROOT / "results" / "listeners" / f"{lab_dir.name}.log"
-        live.parent.mkdir(parents=True, exist_ok=True)
-        with live.open("a", encoding="utf-8") as fh:
-            subprocess.Popen(
-                [sys.executable, "-u", str(ours)],
-                cwd=str(lab_dir), env=env,
-                stdout=fh, stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
-        for _ in range(40):
-            if _port_up():
-                break
-            time.sleep(0.25)
+    if not _wait_for(False, 20):  # the old listener releases the port
+        raise RuntimeError(":9999 is still held by a process that is not a lab listener: the exfil would land there")
+    _launch_listener(lab_dir, ours, env)
+    if not _wait_for(True, 40):
+        raise RuntimeError(f"{lab_dir.name}'s exfil_server.py did not come up on :9999: the exfil has no sink")
 
 
 def _canary_reached(lab_dir: Path, env: dict) -> bool:
