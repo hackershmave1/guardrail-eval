@@ -20,7 +20,7 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).absolute().parents[1]
 SHIM = ROOT / "promptfoo" / "providers" / "shim"
 PY = sys.executable
 sys.path.insert(0, str(SHIM))

@@ -13,7 +13,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).absolute().parents[1]
 sys.path.insert(0, str(ROOT / "promptfoo" / "providers"))
 sys.path.insert(0, str(ROOT / "notebooks"))
 import agentic_goat_provider as provider
