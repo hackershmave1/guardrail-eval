@@ -342,8 +342,11 @@ def _oracle(lab_dir: Path, cfg: dict, env: dict, stdout: str) -> tuple[bool, str
         log = _server_log_path(cfg)
         if not log:
             raise ValueError("oracle 'http_callback' needs 'oracle_log'")
-        lines = log.read_text(encoding="utf-8", errors="replace").splitlines() if log.is_file() else []
         markers = _as_list(cfg.get("oracle_markers"))
+        if not markers:
+            # No markers = nothing to match = silent PASS.
+            raise ValueError("oracle 'http_callback' needs 'oracle_markers'")
+        lines = log.read_text(encoding="utf-8", errors="replace").splitlines() if log.is_file() else []
         hits = [ln for ln in lines for m in markers if m in ln]
         return bool(hits), (f"server logged callback: {hits[0][:200]}" if hits else "")
     raise ValueError(f"unknown oracle: {kind!r}")

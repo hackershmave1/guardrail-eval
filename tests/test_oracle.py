@@ -154,9 +154,11 @@ class HttpCallback(LabCase):
         self.write("hits.jsonl", "GET /collect?sig=OTHER\n")
         self.assertEqual(self.oracle(**cfg), (False, ""))
 
-    def test_no_log_is_a_config_error(self):
-        with self.assertRaises(ValueError):
-            self.oracle(oracle="http_callback", oracle_markers="WEBSIG-comment")
+    def test_missing_log_or_markers_is_a_config_error(self):
+        log = str(self.write("hits.jsonl", "GET /collect?sig=WEBSIG-comment\n"))
+        for cfg in ({"oracle_markers": "WEBSIG-comment"}, {"oracle_log": log}):
+            with self.subTest(cfg=cfg), self.assertRaises(ValueError):
+                self.oracle(oracle="http_callback", **cfg)
 
 
 class UnknownOracle(LabCase):
