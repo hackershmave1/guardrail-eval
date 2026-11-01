@@ -32,7 +32,8 @@ Guard). Promptfoo runs the test cases from `AI_Guardrails_POC_4_2.xlsx` (v4.2, 4
 Detailed rules load only when the matching files are touched (`.claude/rules/`):
 `model-facing-text.md` (attacks, prompts, seeds, pages), `grading.md` (providers, outcomes,
 oracles), `promptfoo-configs.md` (configs, carrier, promptfoo skills, lab map),
-`results-and-coverage.md` (store, coverage docs), `notebook.md`. Shipping steps: the `ship` skill.
+`results-and-coverage.md` (store, coverage docs), `notebook.md`, `ub-mode.md` (quality-gate tools,
+commit rhythm). Shipping steps: the `ship` skill.
 Enforced by `.claude/settings.json`: no edits to the submodule, past results or generated
 datasets; an edit hook blocks the real company name and other banned text (regexes in `.env`).
 
@@ -107,4 +108,5 @@ results/                 runs/<run_id>/ (immutable), guardrail_eval.db, <config>
 - Rewrite `STATUS.md` after every milestone as a current snapshot.
 - Docs lead with a diagram (Mermaid); the user learns visually.
 - Run labs only in an isolated environment (REQ-ENV-03). All secrets and PII are synthetic.
-- Don't commit unless asked; then follow the `ship` skill (branch off `main` first).
+- Don't commit unless asked; then follow the `ship` skill (branch off `main` first). Under
+  ub-mode, committing often on that branch counts as asked (`.claude/rules/ub-mode.md`).

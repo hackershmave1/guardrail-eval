@@ -17,6 +17,10 @@ promptfoo-errors.log
 **/chroma_db/
 results/
 
+# ub-mode quality-gate output (crapper, dryer, mutator)
+.metrics/
+target/
+
 # POC workbook: source of truth, kept out of git (share it out of band)
 AI_Guardrails_POC_*.xlsx
 
@@ -32,4 +36,5 @@ AI_Guardrails_POC_*.xlsx
 !.claude/skills/
 .claude/skills/*
 !.claude/skills/ship/
+!.claude/skills/ub-mode/
 skills-lock.json

@@ -20,7 +20,7 @@ import sys
 from collections import Counter, OrderedDict
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "promptfoo" / "providers"))
+sys.path.insert(0, str(Path(__file__).absolute().parents[1] / "promptfoo" / "providers"))
 import outcome  # noqa: E402
 
 c = sys.argv[1]
