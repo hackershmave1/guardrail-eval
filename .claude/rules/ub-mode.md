@@ -50,6 +50,12 @@ mutator promptfoo/providers/outcome.py   # one file at a time, or: mutator --cha
   `Path(__file__).absolute()`, never `.resolve()`: `resolve()` follows the symlink back to the
   real repo, the tests import the unmutated file, and every mutant falsely survives.
 - A mutator run where every mutant survives is a broken harness until proved otherwise.
+- Fast runs: `mutator --no-coverage --test-command "<abs path>/venv/bin/python -m unittest
+  tests.<module>" <file>`. Use an absolute interpreter path: a command that fails in a worker
+  reads every mutant as killed.
+- mutator reuses its last snapshot: a site it killed before, in a function that has not changed,
+  is not rerun. So a run where every mutant is killed is proved only by a rerun with
+  `--mutate-all` and one weak test, and that rerun must leave survivors.
 
 ## Commits
 
