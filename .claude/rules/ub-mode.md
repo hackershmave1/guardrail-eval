@@ -36,8 +36,11 @@ mutator promptfoo/providers/outcome.py   # one file at a time, or: mutator --cha
 
 - crapper takes about a minute (it runs the suite under coverage). Output goes to `.metrics/` and
   `target/`, both gitignored.
-- Baselines when ub-mode came in (2026-11-01): 110 of 264 functions over CRAP 10; mutator on
-  `outcome.py` 14 killed, 4 survived, 2 uncovered (77.8%). Hold the code you change to the gates.
+- Baselines when ub-mode came in (2026-11-01): 110 of 264 functions over CRAP 10. Hold the code
+  you change to the gates. `outcome.py` (the grading rule) is at 100% mutation score; keep it
+  there.
+- A site mutator calls "uncovered" can be a coverage artifact: a continuation line of a multi-line
+  `def` is never marked hit. Check with `mutator --no-coverage <file>` before writing a test.
 
 ## Keep the tools honest
 
