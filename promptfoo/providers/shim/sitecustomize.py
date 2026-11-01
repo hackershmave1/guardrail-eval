@@ -33,11 +33,18 @@ token budget untouched.
    on every chat completion. Lab 05 auto-picks the FIRST id from /models, which
    on OpenRouter is arbitrary; REQ-MD-01 needs the same carrier on every row.
 
+4. OPENROUTER_PROVIDER_ONLY pins the OpenRouter PROVIDER too (REQ-MD-01): the same
+   model id is served by several providers at different quantisations, and tool
+   support is only a best-effort routing preference. require_parameters makes
+   tools mandatory.
+
 5. EXTRA_HEADERS (extra_headers.py): adds the headers configured for the endpoint
    the lab's client calls (a local gateway's model header, a vendor gateway's
    project id). A malformed table or an unset ${VAR} is reported on stderr and
    no extra header is sent; run_evals.sh (run_meta.py check-headers) and the notebook
    refuse such a table before a run. Sync chat completions only, like the layers below.
+
+Each layer wraps the `create` inside it; install() stacks them in the order above.
 """
 
 import json
@@ -45,136 +52,135 @@ import os
 import sys
 import time
 
-_headers_raw = os.environ.get("EXTRA_HEADERS", "")
-if _headers_raw.strip():
+
+def _headered(create, table):
+    import extra_headers as _eh
+
+    def call(self, *args, **kwargs):
+        add = _eh.for_url(table, self._client.base_url)
+        if add:
+            kwargs["extra_headers"] = {**add, **dict(kwargs.pop("extra_headers", None) or {})}
+        return create(self, *args, **kwargs)
+    return call
+
+
+def _with_body(create, key, value):
+    """Send extra_body[key] = value unless the lab set that key itself."""
+    def call(self, *args, **kwargs):
+        extra = dict(kwargs.pop("extra_body", None) or {})
+        extra.setdefault(key, value)
+        return create(self, *args, extra_body=extra, **kwargs)
+    return call
+
+
+def _pinned(create, model):
+    def call(self, *args, **kwargs):
+        kwargs["model"] = model
+        return create(self, *args, **kwargs)
+    return call
+
+
+def _plain(obj):
+    dump = getattr(obj, "model_dump", None)
+    return dump(exclude_none=True) if callable(dump) else str(obj)
+
+
+def _record(path, trial, kwargs, response, n, started_at):
+    try:
+        choices = getattr(response, "choices", None) or []
+        entry = {
+            "trial_id": trial,
+            "started_at": started_at,
+            "finished_at": time.time(),
+            "resample": n,
+            "messages": kwargs.get("messages"),
+            "tools": kwargs.get("tools"),
+            "reply": choices[0].message if choices else None,
+            "finish_reason": getattr(choices[0], "finish_reason", None) if choices else None,
+            "usage": getattr(response, "usage", None),
+        }
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(entry, default=_plain) + "\n")
+    except Exception:  # noqa: BLE001 - recording must never break the lab
+        pass
+
+
+def _empty_turn(response) -> bool:
+    """No text and no tool call, on a turn that may be resampled.
+
+    No choices = an endpoint error, not an empty turn: the lab gets it (its crash
+    reads NOT-RUN and the provider retries the attempt). `content_filter` and
+    `length` are endings, not glitches.
+    """
+    choices = getattr(response, "choices", None) or []
+    if not choices or choices[0].finish_reason in ("content_filter", "length"):
+        return False
+    msg = choices[0].message
+    return not ((getattr(msg, "content", None) or "").strip() or getattr(msg, "tool_calls", None))
+
+
+def _recorded(create, path, trial, resample):
+    def call(self, *args, **kwargs):
+        if trial:
+            headers = dict(kwargs.pop("extra_headers", None) or {})
+            headers.setdefault("X-Trial-Id", trial)
+            kwargs["extra_headers"] = headers
+        for n in range(resample + 1):
+            started_at = time.time()
+            response = create(self, *args, **kwargs)
+            _record(path, trial, kwargs, response, n, started_at)
+            if kwargs.get("stream") or not _empty_turn(response):
+                break
+        return response
+    return call
+
+
+def _header_layer(env):
+    raw = env.get("EXTRA_HEADERS", "")
+    if not raw.strip():
+        return None
     try:
         import extra_headers as _eh
 
-        _header_table = _eh.resolve(_eh.parse(_headers_raw), os.environ)
-        from openai.resources.chat.completions import Completions
-
-        _bare_create = Completions.create
-
-        def _headered(self, *args, **kwargs):
-            add = _eh.for_url(_header_table, self._client.base_url)
-            if add:
-                kwargs["extra_headers"] = {**add, **dict(kwargs.pop("extra_headers", None) or {})}
-            return _bare_create(self, *args, **kwargs)
-
-        Completions.create = _headered
+        table = _eh.resolve(_eh.parse(raw), env)
     except Exception as e:  # noqa: BLE001 - never break the lab over the shim
         print(f"[shim] EXTRA_HEADERS not applied: {type(e).__name__}: {e}", file=sys.stderr)
-
-_route = [p.strip() for p in os.environ.get("OPENROUTER_PROVIDER_ONLY", "").split(",") if p.strip()]
-if _route:
-    # 4. Pin the OpenRouter PROVIDER too (REQ-MD-01): the same model id is served by
-    #    several providers at different quantisations, and tool support is only a
-    #    best-effort routing preference. require_parameters makes tools mandatory.
-    try:
-        from openai.resources.chat.completions import Completions
-
-        _unrouted_create = Completions.create
-
-        def _routed(self, *args, **kwargs):
-            extra = dict(kwargs.pop("extra_body", None) or {})
-            extra.setdefault("provider", {"only": _route, "allow_fallbacks": False,
-                                          "require_parameters": True})
-            return _unrouted_create(self, *args, extra_body=extra, **kwargs)
-
-        Completions.create = _routed
-    except Exception:  # noqa: BLE001 - never break the lab over the shim
-        pass
-
-_pin = os.environ.get("GUARDRAIL_PIN_MODEL")
-if _pin:
-    try:
-        from openai.resources.chat.completions import Completions
-
-        _unpinned_create = Completions.create
-
-        def _pinned(self, *args, **kwargs):
-            kwargs["model"] = _pin
-            return _unpinned_create(self, *args, **kwargs)
-
-        Completions.create = _pinned
-    except Exception:  # noqa: BLE001 - never break the lab over the shim
-        pass
-
-_effort = os.environ.get("GUARDRAIL_REASONING_EFFORT")
-if _effort:
-    try:
-        from openai.resources.chat.completions import Completions
-
-        _orig_create = Completions.create
-
-        def _create(self, *args, **kwargs):
-            extra = dict(kwargs.pop("extra_body", None) or {})
-            extra.setdefault("reasoning", {"effort": _effort})
-            return _orig_create(self, *args, extra_body=extra, **kwargs)
-
-        Completions.create = _create
-    except Exception:  # noqa: BLE001 - never break the lab over the shim
-        pass
+        return None
+    return lambda create: _headered(create, table)
 
 
-_transcript = os.environ.get("GUARDRAIL_TRANSCRIPT")
-if _transcript:
-    try:
-        from openai.resources.chat.completions import Completions
+def _layers(env) -> list:
+    """The wrappers the env asks for, innermost first."""
+    layers = [layer for layer in (_header_layer(env),) if layer]
+    route = [p.strip() for p in env.get("OPENROUTER_PROVIDER_ONLY", "").split(",") if p.strip()]
+    if route:
+        provider = {"only": route, "allow_fallbacks": False, "require_parameters": True}
+        layers.append(lambda create: _with_body(create, "provider", provider))
+    if env.get("GUARDRAIL_PIN_MODEL"):
+        layers.append(lambda create: _pinned(create, env["GUARDRAIL_PIN_MODEL"]))
+    if env.get("GUARDRAIL_REASONING_EFFORT"):
+        effort = {"effort": env["GUARDRAIL_REASONING_EFFORT"]}
+        layers.append(lambda create: _with_body(create, "reasoning", effort))
+    if env.get("GUARDRAIL_TRANSCRIPT"):
+        resample = max(0, int(env.get("GUARDRAIL_RESAMPLE", "0") or 0))
+        layers.append(lambda create: _recorded(create, env["GUARDRAIL_TRANSCRIPT"],
+                                               env.get("GUARDRAIL_TRIAL_ID"), resample))
+    return layers
 
-        _inner_create = Completions.create
 
-        def _plain(obj):
-            dump = getattr(obj, "model_dump", None)
-            return dump(exclude_none=True) if callable(dump) else str(obj)
+def install(env) -> None:
+    layers = _layers(dict(env))
+    if not layers:
+        return
+    from openai.resources.chat.completions import Completions
 
-        _resample = int(os.environ.get("GUARDRAIL_RESAMPLE", "0") or 0)
-        _trial = os.environ.get("GUARDRAIL_TRIAL_ID")
+    create = Completions.create
+    for layer in layers:
+        create = layer(create)
+    Completions.create = create
 
-        def _record(kwargs, response, n, started_at):
-            try:
-                choices = getattr(response, "choices", None) or []
-                entry = {
-                    "trial_id": _trial,
-                    "started_at": started_at,
-                    "finished_at": time.time(),
-                    "resample": n,
-                    "messages": kwargs.get("messages"),
-                    "tools": kwargs.get("tools"),
-                    "reply": choices[0].message if choices else None,
-                    "finish_reason": getattr(choices[0], "finish_reason", None) if choices else None,
-                    "usage": getattr(response, "usage", None),
-                }
-                with open(_transcript, "a", encoding="utf-8") as fh:
-                    fh.write(json.dumps(entry, default=_plain) + "\n")
-            except Exception:  # noqa: BLE001 - recording must never break the lab
-                pass
 
-        def _empty(response):
-            choices = getattr(response, "choices", None) or []
-            msg = choices[0].message if choices else None
-            return not ((getattr(msg, "content", None) or "").strip()
-                        or getattr(msg, "tool_calls", None))
-
-        def _recorded(self, *args, **kwargs):
-            if _trial:
-                headers = dict(kwargs.pop("extra_headers", None) or {})
-                headers.setdefault("X-Trial-Id", _trial)
-                kwargs["extra_headers"] = headers
-            n = 0
-            while True:
-                started_at = time.time()
-                response = _inner_create(self, *args, **kwargs)
-                _record(kwargs, response, n, started_at)
-                if kwargs.get("stream") or n >= _resample or not _empty(response):
-                    return response
-                choices = getattr(response, "choices", None) or []
-                # No choices = an endpoint error, not an empty turn: hand it to the lab
-                # (its crash reads NOT-RUN and the provider retries the attempt).
-                if not choices or choices[0].finish_reason in ("content_filter", "length"):
-                    return response
-                n += 1
-
-        Completions.create = _recorded
-    except Exception:  # noqa: BLE001
-        pass
+try:
+    install(os.environ)
+except Exception as e:  # noqa: BLE001 - never break the lab over the shim
+    print(f"[shim] not installed: {type(e).__name__}: {e}", file=sys.stderr)
