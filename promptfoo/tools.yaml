@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 # Promptfoo config — USE CASE: Tools (tool-call mediation / excessive agency)
-# Workbook TC-IDs: TOOL-03 (tool-call screening: call content+schema leak / OS-cmd
+# TC-IDs: TOOL-03 (tool-call screening: call content+schema leak / OS-cmd
 #                  args / path traversal, P0), TOOL-02 (lethal-trifecta, P0; doc-borne leg),
 #                  EXF-01 (exfil via tool, P0), EXF-02 (web-search param exfil, P1),
 #                  DLP-03 (secrets in tool args, P0).

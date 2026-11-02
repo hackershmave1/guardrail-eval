@@ -1,6 +1,6 @@
 """Loading a run into the results store (scripts/ingest_run.py), on temp run dirs and a temp DB.
 
-Nothing reads results/ or the real workbook: the run dir, the workbook and COVERAGE.md are
+Nothing reads results/ or a real catalog file: the run dir, the catalog and COVERAGE.md are
 written per test, and the store is a fresh SQLite file built from db/schema.sql.
 """
 
@@ -260,7 +260,7 @@ class Catalog(Temp):
 
     def test_the_use_cases_tab_is_loaded_once(self):
         write_workbook(self.book, [
-            cell("A1", "AI Guardrails POC"),
+            cell("A1", "Test-case catalog"),
             cell("A2", "PI-00") + cell("B2", "before the header"),
             self.HEADER,
             cell("A4", "PI-01") + cell("B4", "Prompt ", "injection") + cell("C4", "Direct")
@@ -452,11 +452,11 @@ class Ingest(Temp):
         [(c1, f1), (c2, _)] = self.rows("SELECT conversation, forwarded_body FROM transcript ORDER BY trial_id")
         self.assertEqual(("Grüße" in c1, "Grüße" in f1, "München" in c2), (True, True, True))
 
-    def test_a_vendor_guardrail_is_registered_by_its_id(self):
-        self.write(meta={"guardrail_id": "paloalto-airs-1-ai_gateway", "placement": "ai_gateway"}, results=[])
+    def test_a_guardrail_is_registered_by_its_id(self):
+        self.write(meta={"guardrail_id": "acmeguard-1-ai_gateway", "placement": "ai_gateway"}, results=[])
         self.ingest()
         self.assertEqual(self.rows("SELECT guardrail_id, vendor, placement FROM guardrail"),
-                         [("paloalto-airs-1-ai_gateway", "paloalto", "ai_gateway")])
+                         [("acmeguard-1-ai_gateway", "acmeguard", "ai_gateway")])
 
     def test_a_slot_action_without_a_reason(self):
         self.write(meta={"config": "model_channel"},

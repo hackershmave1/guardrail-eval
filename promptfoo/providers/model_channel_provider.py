@@ -1,5 +1,5 @@
 """
-Promptfoo provider for MODEL-CHANNEL rows (workbook "Model-level" TC-IDs:
+Promptfoo provider for MODEL-CHANNEL rows (model-level TC-IDs:
 PI-01, DLP-01). No AgenticGoat lab: the request goes
 
     promptfoo -> this provider -> guardrail slot (proxy.py) -> carrier model

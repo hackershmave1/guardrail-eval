@@ -4,10 +4,10 @@
 PRAGMA foreign_keys = ON;
 PRAGMA user_version = 2;
 
--- ── Catalog (from AI_Guardrails_POC_*.xlsx, "Use Cases" tab) ────────────────
+-- ── Catalog (from the optional test-case catalog spreadsheet) ──────────────
 CREATE TABLE catalog (
     version      TEXT PRIMARY KEY,               -- '4.2'
-    source_file  TEXT NOT NULL,                  -- workbook file name
+    source_file  TEXT NOT NULL,                  -- catalog file name
     imported_at  TEXT NOT NULL                   -- ISO-8601 UTC
 );
 
@@ -17,8 +17,8 @@ CREATE TABLE test_case (
     category          TEXT NOT NULL,
     scenario          TEXT NOT NULL,
     priority          TEXT NOT NULL CHECK (priority IN ('P0','P1','P2','P3')),
-    scope             TEXT NOT NULL,             -- workbook: 'In scope' | 'Shared' | 'Meta'
-    level             TEXT NOT NULL,             -- workbook: 'Model-level' | 'Application-targeted' | 'Both' | 'N/A ...'
+    scope             TEXT NOT NULL,             -- catalog: 'In scope' | 'Shared' | 'Meta'
+    level             TEXT NOT NULL,             -- catalog: 'Model-level' | 'Application-targeted' | 'Both' | 'N/A ...'
     success_criteria  TEXT,
     PRIMARY KEY (tc_id, catalog_version)
 );

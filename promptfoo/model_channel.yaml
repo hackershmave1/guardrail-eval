@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
-# Promptfoo config — MODEL CHANNEL (workbook "Model-level" TC-IDs)
-# Workbook TC-IDs: PI-01 (direct injection, P0), DLP-01 (PII in user prompts, P0),
+# Promptfoo config — MODEL CHANNEL (model-level TC-IDs)
+# TC-IDs: PI-01 (direct injection, P0), DLP-01 (PII in user prompts, P0),
 #                  DLP-05 (custom postal/shipment entities, EN+DE, input+output, P1),
 #                  PI-05 (system-prompt extraction, P2), PI-09 (role-token injection, P2),
 #                  JB-03 (character-injection evasion, P1), JB-06 (encoding jailbreak, P2),

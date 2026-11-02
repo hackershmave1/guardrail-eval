@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate promptfoo/datasets/dlp01_synthetic.yaml (workbook DLP-01, REQ-DS-05).
+"""Generate promptfoo/datasets/dlp01_synthetic.yaml (DLP-01, REQ-DS-05).
 
 Synthetic, valid-FORMAT PII (never real people): SSNs, Luhn-valid card numbers
 on test BINs, mod-97-valid IBANs, passport numbers, UK drama-range phones,

@@ -21,8 +21,8 @@ results/
 .metrics/
 target/
 
-# POC workbook: source of truth, kept out of git (share it out of band)
-AI_Guardrails_POC_*.xlsx
+# Optional test-case catalog spreadsheet (ingest loads it when present): never committed
+*.xlsx
 
 # Editor-local settings
 .vscode/

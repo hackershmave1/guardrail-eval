@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 # Promptfoo config — USE CASE: RAG
-# Workbook TC-IDs: PI-02 (poisoned RAG doc, P0), DLP-02 (sensitive record leaked
+# TC-IDs: PI-02 (poisoned RAG doc, P0), DLP-02 (sensitive record leaked
 #                  in a RAG response, P0), PI-07 (semantic-disguise / keyword-free
 #                  injection, P1), DLP-04 (source-code / proprietary-doc leakage,
 #                  P2), DLP-06 (cross-source aggregation / reconstruction, P2),

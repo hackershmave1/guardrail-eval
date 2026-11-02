@@ -202,12 +202,12 @@ def _row(row_id, state, tcs=("PI-04",), **kw):
 class OperatorFlow(unittest.TestCase):
     """B1 set up, B2 run, B3 review: the logic behind the widgets, no runs and no model calls."""
 
-    def test_vendor_profiles_are_gated(self):
+    def test_guardrail_profiles_are_gated(self):
         for profile in ("gateway", "guardrail_api"):
             with self.subTest(profile=profile), self.assertRaises(ValueError):
                 op.launch(["tools"], mode="scratch", repeat=1, filt="CTRL-delete", overrides={}, profile=profile)
             errors, _ = op.preflight(["tools"], "scratch", {}, profile=profile)
-            self.assertTrue(any("Phase B" in x for x in errors))
+            self.assertTrue(any("adapter" in x for x in errors))
 
     def test_guardrail_id_follows_the_store_naming(self):
         self.assertEqual(op.guardrail_id(op.Session()), "none")

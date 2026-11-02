@@ -9,8 +9,9 @@ The run dir is written by scripts/run_evals.sh:
     slot_log.jsonl      guardrail-slot wire log (model_channel only)
 
 Creates the DB from db/schema.sql if it doesn't exist. Append-only: a run_id that is
-already in the DB is skipped. Each ingest also records the workbook catalog (once per
-version) and a COVERAGE.md snapshot (only when it changed since the last one).
+already in the DB is skipped. Each ingest also records the optional test-case catalog
+spreadsheet, when present (once per version), and a COVERAGE.md snapshot (only when it
+changed since the last one).
 
 Verdicts come from the provider's `outcome` (promptfoo/providers/outcome.py, the same
 rule summarize.py and assert_canary.py use); ERROR if promptfoo errored with no output.
