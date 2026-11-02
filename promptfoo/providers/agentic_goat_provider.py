@@ -680,15 +680,17 @@ def _delivered(calls: list[dict], marker: str, target_hop: str | None) -> bool:
     pat = re.compile(marker)
     for call in calls:
         msgs = [m for m in call.get("messages") or [] if isinstance(m, dict)]
-        if target_hop:
-            system = "\n".join(_text(m.get("content")) for m in msgs if m.get("role") == "system")
-            if not re.search(target_hop, system):
-                continue
-        parts = [_text(m.get("content")) for m in msgs if m.get("role") in ("system", "user", "tool")]
-        parts.append(json.dumps(call.get("tools") or [], ensure_ascii=False))
-        if pat.search("\n".join(parts)):
+        if target_hop and not re.search(target_hop, _role_text(msgs, ("system",))):
+            continue
+        sent = [_role_text(msgs, ("system", "user", "tool")),
+                json.dumps(call.get("tools") or [], ensure_ascii=False)]
+        if pat.search("\n".join(sent)):
             return True
     return False
+
+
+def _role_text(msgs: list[dict], roles: tuple[str, ...]) -> str:
+    return "\n".join(_text(m.get("content")) for m in msgs if m.get("role") in roles)
 
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")

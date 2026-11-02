@@ -20,7 +20,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).absolute().parents[1]
 
 # Reuse the ONE canonical .env parser (proxy.load_dotenv), so the recorded
 # carrier_model / provider_pin match what the slot and the labs actually read.
@@ -54,42 +54,54 @@ def sh(*cmd: str) -> str:
     return subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True).stdout.strip()
 
 
-def main() -> None:
-    if sys.argv[1] == "check-headers":
-        # A lab row's shim only warns on a bad table, so the run would go out without the
-        # header (possibly on the wrong model): refuse the config here instead.
-        err = header_names().get("error")
-        if err:
-            sys.exit(f"EXTRA_HEADERS: {err}")
-        return
-    action, run_dir = sys.argv[1], Path(sys.argv[2])
-    meta_path = run_dir / "run.json"
-    if action == "start":
-        run_id, config, concurrency = sys.argv[3], sys.argv[4], int(sys.argv[5])
-        run_dir.mkdir(parents=True, exist_ok=True)
-        pf_ver = sh("promptfoo", "--version")
-        meta = {
-            "run_id": run_id, "config": config, "started_at": now(), "finished_at": None,
-            "status": "running",
-            "git_commit": sh("git", "rev-parse", "HEAD"),
-            "git_dirty": bool(sh("git", "status", "--porcelain", "--untracked-files=no")),
-            "promptfoo_version": pf_ver.splitlines()[-1] if pf_ver else "unknown",
-            "carrier_model": dotenv("MODEL"),
-            "provider_pin": dotenv("OPENROUTER_PROVIDER_ONLY") or None,
-            "extra_headers": header_names(),
-            "guardrail_id": os.environ.get("GUARDRAIL_ID", "none"),
-            "repeat": int(os.environ.get("REPEAT", "1")),
-            "filter": os.environ.get("FILTER") or None,
-            "concurrency": concurrency,
-        }
-    else:
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        code = int(sys.argv[3])
-        meta["finished_at"] = now()
-        meta["exit_code"] = code
-        meta["status"] = "complete" if code in (0, 100) and (run_dir / f"{meta['config']}.json").exists() else "aborted"
-    meta_path.write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+def _check_headers() -> None:
+    # A lab row's shim only warns on a bad table, so the run would go out without the
+    # header (possibly on the wrong model): refuse the config here instead.
+    err = header_names().get("error")
+    if err:
+        sys.exit(f"EXTRA_HEADERS: {err}")
 
+
+def _promptfoo_version() -> str:
+    out = sh("promptfoo", "--version")
+    return out.splitlines()[-1] if out else "unknown"
+
+
+def _start(run_dir: Path, run_id: str, config: str, concurrency: str) -> dict:
+    jobs = int(concurrency)
+    run_dir.mkdir(parents=True, exist_ok=True)
+    return {
+        "run_id": run_id, "config": config, "started_at": now(), "finished_at": None,
+        "status": "running",
+        "git_commit": sh("git", "rev-parse", "HEAD"),
+        "git_dirty": bool(sh("git", "status", "--porcelain", "--untracked-files=no")),
+        "promptfoo_version": _promptfoo_version(),
+        "carrier_model": dotenv("MODEL"),
+        "provider_pin": dotenv("OPENROUTER_PROVIDER_ONLY") or None,
+        "extra_headers": header_names(),
+        "guardrail_id": os.environ.get("GUARDRAIL_ID", "none"),
+        "repeat": int(os.environ.get("REPEAT", "1")),
+        "filter": os.environ.get("FILTER") or None,
+        "concurrency": jobs,
+    }
+
+
+def _finish(run_dir: Path, code: str) -> dict:
+    meta = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    meta["finished_at"] = now()
+    meta["exit_code"] = int(code)
+    complete = meta["exit_code"] in (0, 100) and (run_dir / f"{meta['config']}.json").exists()
+    meta["status"] = "complete" if complete else "aborted"
+    return meta
+
+
+def main() -> None:
+    action, *args = sys.argv[1:]
+    if action == "check-headers":
+        return _check_headers()
+    run_dir = Path(args[0])
+    meta = _start(run_dir, *args[1:]) if action == "start" else _finish(run_dir, *args[1:])
+    (run_dir / "run.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
 
 if __name__ == "__main__":
     main()
