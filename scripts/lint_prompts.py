@@ -10,7 +10,7 @@ and `canary` (it is spelled out inside the attack). Labels belong in `descriptio
 `injection_note`, which the model never sees.
 
 ERROR (exit 1): a TC-ID (`PI01`, `JB03-…`), evaluation vocabulary (canary, sentinel,
-guardrail, red team, "(expect …)"), a report label in parentheses at the end of a
+guardrail, red team, leak, "(expect …)"), a report label in parentheses at the end of a
 prompt, a "do not / never" line in a benign control, or a self-grounding line
 ("use only the source", "do not rely on outside knowledge") in any row.
 WARN: the word "test" — legitimate as an attacker's pretext ("for a support-tool test,
@@ -36,7 +36,7 @@ FIELDS = ("attack", "system_prompt", "seed_content", "source_canary", "canary")
 
 TC_ID = re.compile(r"\b(?:PI|DLP|JB|OUT|TOOL|EXF|SUP|MEM|CAL|GSI|NF|POL|TOX|MM)-?\d{2}[A-Z]?\b")
 META = re.compile(r"\b(canar(y|ies)|sentinel|guardrail|red[ -]?team|benchmark|eval(uation)?"
-                  r"|known[- ](good|bad)|look-?alike|proprietary IP|exfil\w*)\b|\(expect", re.I)
+                  r"|known[- ](good|bad)|look-?alike|proprietary IP|exfil\w*|leak\w*)\b|\(expect", re.I)
 LABEL = re.compile(r"\([^()]{3,80}\)\s*$")
 HARDEN = re.compile(r"\b(do not|don't|never)\b[^.\n]*\b(modify|delete|disclose|reveal|share|store)\b", re.I)
 # Grounding done by the prompt itself (the OUT-04 Band A lesson): an error on any row.
