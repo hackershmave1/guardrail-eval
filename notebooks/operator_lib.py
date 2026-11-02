@@ -402,7 +402,7 @@ def coverage() -> dict[str, dict]:
             cols = [c.strip() for c in line.strip().strip("|").split("|")]
             table.setdefault(cols[0], (cols[1], cols[2]))
     out = {}
-    for tc, status, section, target, notes, tokens in ingest_run.coverage_rows():
+    for tc, status, _prio, section, target, notes, tokens in ingest_run.coverage_rows():
         scenario, prio = table.get(tc, ("", ""))
         out[tc] = {"tc": tc, "scenario": scenario, "priority": prio, "status": status,
                    "section": section, "harness": target, "rows": notes, "tokens": tokens}

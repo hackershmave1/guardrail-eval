@@ -103,6 +103,11 @@ class RowDefinition(unittest.TestCase):
 
 
 class SmallHelpers(Temp):
+    def test_off_pin_matches_a_slug_either_way_round(self):
+        self.assertEqual(ingest_run.off_pin("deepinfra/bf16", ["DeepInfra"]), [])
+        self.assertEqual(ingest_run.off_pin("novita", ["NovitaAI", "Novita"]), [])
+        self.assertEqual(ingest_run.off_pin("deepinfra", ["Deep-Infra", "Together", "Together", None]), ["Together"])
+
     def test_flag01(self):
         self.assertEqual([ingest_run.flag01(v) for v in (None, True, False, 0, "x")], [None, 1, 0, 0, 1])
 
@@ -195,13 +200,13 @@ class Coverage(Temp):
 
     def test_rows_status_section_and_row_tokens(self):
         self.assertEqual(ingest_run.coverage_rows(), [
-            ("PI-01", "Covered", "Prompt injection", "model channel", "`MC-PI01` 3/3, `MC-PI01-02`",
+            ("PI-01", "Covered", "P0", "Prompt injection", "model channel", "`MC-PI01` 3/3, `MC-PI01-02`",
              ["MC-PI01", "MC-PI01-02"]),
-            ("PI-04", "Partial", "Prompt injection", "mcp", "`MCP-PI04` 3/3 | `MCP-PI04b`",
+            ("PI-04", "Partial", "P0", "Prompt injection", "mcp", "`MCP-PI04` 3/3 | `MCP-PI04b`",
              ["MCP-PI04", "MCP-PI04b"]),
-            ("PI-05", "Not covered", "Prompt injection", "", "only notes", []),
-            ("PI-06", "Not covered", "Prompt injection", "", "", []),
-            ("DLP-01", "Not covered", "Data loss", "slot", "`MC-DLP01`", ["MC-DLP01"])])
+            ("PI-05", "Not covered", "P2", "Prompt injection", "", "only notes", []),
+            ("PI-06", "Not covered", "P3", "Prompt injection", "", "", []),
+            ("DLP-01", "Not covered", "P0", "Data loss", "slot", "`MC-DLP01`", ["MC-DLP01"])])
 
     def test_a_snapshot_is_taken_only_when_a_status_changed(self):
         con = sqlite3.connect(":memory:")
@@ -215,9 +220,9 @@ class Coverage(Temp):
             changed = [(tc, "Covered" if tc == "PI-05" else st, *rest) for tc, st, *rest in cov]
             ingest_run.snapshot_coverage(con, changed)
         self.assertEqual(con.execute("SELECT COUNT(*) FROM coverage_snapshot").fetchone()[0], 2)
-        self.assertEqual(con.execute("SELECT tc_id, status, section, target, notes FROM coverage_status"
+        self.assertEqual(con.execute("SELECT tc_id, status, priority, section, target, notes FROM coverage_status"
                                      " WHERE snapshot_id = 1 AND tc_id = 'PI-05'").fetchone(),
-                         ("PI-05", "Not covered", "Prompt injection", "", "only notes"))
+                         ("PI-05", "Not covered", "P2", "Prompt injection", "", "only notes"))
         with mock.patch.object(ingest_run, "git", return_value=""):
             ingest_run.snapshot_coverage(con, cov)
         self.assertEqual(con.execute("SELECT git_commit, git_dirty FROM coverage_snapshot WHERE snapshot_id = 3")
@@ -270,9 +275,9 @@ class Connect(Temp):
 META = {"run_id": "20261102T000000Z-mcp", "config": "mcp", "started_at": "2026-11-02T00:00:00Z",
         "finished_at": "2026-11-02T00:05:00Z", "git_commit": "abc", "git_dirty": False,
         "promptfoo_version": "0.1", "carrier_model": "openai/gpt-oss-20b", "provider_pin": "deepinfra",
-        "reasoning_effort": "low", "repeat": 3, "filter": "MCP-PI04", "concurrency": 1}
-COV = [("PI-04", "Covered", "Prompt injection", "mcp", "", ["MCP-PI04"]),
-       ("CAL-01", "Covered", "Calibration", "", "", ["CAL-01"])]
+        "repeat": 3, "filter": "MCP-PI04", "concurrency": 1}
+COV = [("PI-04", "Covered", "P0", "Prompt injection", "mcp", "", ["MCP-PI04"]),
+       ("CAL-01", "Covered", "", "Calibration", "", "", ["CAL-01"])]
 
 
 def result(desc, output, vars=None, grading=None, **extra):
@@ -289,12 +294,13 @@ class Ingest(Temp):
         self.patch(ingest_run, coverage_rows=lambda: COV,
                    git=lambda *a: "", name_flag=lambda text: "name-match" if "Globex" in text else None)
 
-    def write(self, meta=None, results=None, slot_lines=None):
+    def write(self, meta=None, results=None, slot_lines=None, providers=None):
         (self.run_dir / "run.json").write_text(json.dumps({**META, **(meta or {})}))
         config = (meta or {}).get("config", META["config"])
         if results is not None:
             (self.run_dir / f"{config}.json").write_text(json.dumps(
-                {"evalId": "eval-1", "results": {"stats": {"successes": 1}, "results": results}}))
+                {"evalId": "eval-1", "results": {"stats": {"successes": 1}, "results": results},
+                 "config": {"providers": providers or [{"id": "file://p.py"}]}}))
         if slot_lines is not None:
             (self.run_dir / "slot_log.jsonl").write_text("\n".join(slot_lines) + "\n")
 
@@ -308,6 +314,23 @@ class Ingest(Temp):
             return con.execute(sql).fetchall()
         finally:
             con.close()
+
+    def test_the_run_records_the_reasoning_efforts_it_asked_for(self):
+        cases = [  # (row vars' efforts, provider config's effort) -> run.reasoning_effort
+            (["low", "low"], None, "low"),
+            ([None], "low", "low"),
+            (["high", None], "low", "high, low"),
+            ([None, None], None, None),
+        ]
+        for i, (row_efforts, provider_effort, want) in enumerate(cases):
+            with self.subTest(case=i):
+                self.write(meta={"run_id": f"effort-{i}"},
+                           results=[result(f"MC-X{n} row", {"outcome": "CLEAN"},
+                                           {"reasoning_effort": e} if e else {}) for n, e in enumerate(row_efforts)],
+                           providers=[{"id": "file://p.py", "config": {"reasoning_effort": provider_effort}}
+                                      if provider_effort else {"id": "file://p.py"}])
+                self.ingest()
+                self.assertEqual(self.rows(f"SELECT reasoning_effort FROM run WHERE run_id = 'effort-{i}'"), [(want,)])
 
     def test_an_ingest_loads_no_catalog_and_says_nothing_about_one(self):
         self.write(results=[])
@@ -386,6 +409,32 @@ class Ingest(Temp):
         self.assertEqual((json.loads(second[1]), second[2]), ({"prompt": None, "request": None, "reply": "ok"}, None))
         self.assertEqual(self.rows("SELECT trial_id, kind, summary, payload, source_path FROM evidence"),
                          [(1, "slot_wire", "slot demo: mask (demo: masked PII)", forwarded, "slot_log.jsonl")])
+
+    def off_pin_run(self, run_id, pin):
+        lab = lambda served, **kw: {"outcome": "LANDED", "transcript": {"conversations": [], "served_by": served}, **kw}
+        wire = {"trial_id": "t-1", "mode": "none", "action": "allow", "reply": {"provider": "Together"}}
+        self.write(meta={"run_id": run_id, "provider_pin": pin}, results=[
+            result("MCP-PI04 a", lab(["DeepInfra", "DeepInfra"])),
+            result("MCP-PI04 b", lab(["DeepInfra", "Novita"], answer="Globex says hi")),
+            result("MCP-PI04 c", lab([None])),
+            result("MC-PI01-01 d", {"outcome": "LANDED", "trial_id": "t-1", "answer": "ok"}),
+            result("MC-PI01-02 e", {"outcome": "LANDED", "trial_id": "t-2", "answer": "ok"})],
+            slot_lines=[json.dumps(wire), json.dumps({**wire, "trial_id": "t-2", "reply": "upstream error"})])
+        return self.ingest()
+
+    def test_a_call_served_off_the_pin_is_flagged_and_counted(self):
+        out = self.off_pin_run("r-pin", "deepinfra")
+        self.assertEqual(out, f"r-pin: 5 trials ingested into {self.db}; 1 transcripts flagged name-match;"
+                              " 2 trials served off the pin deepinfra (Novita, Together)\n")
+        self.assertEqual(self.rows("SELECT flags FROM transcript ORDER BY trial_id"),
+                         [(None,), ("name-match, off-pin",), (None,), ("off-pin",), (None,)])
+
+    def test_no_pin_flags_nothing_and_a_pin_list_matches_any_member(self):
+        for run_id, pin, flagged in (("r-nopin", "", 0), ("r-list", "deepinfra, novita,together", 0)):
+            with self.subTest(pin=pin):
+                self.off_pin_run(run_id, pin)
+                self.assertEqual(self.rows(f"SELECT COUNT(*) FROM transcript t JOIN trial USING (trial_id)"
+                                           f" WHERE run_id = '{run_id}' AND t.flags LIKE '%off-pin%'"), [(flagged,)])
 
     def test_text_is_stored_as_written_and_vars_hash_ignores_key_order(self):
         self.write(meta={"config": "model_channel"}, results=[

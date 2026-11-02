@@ -25,7 +25,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).absolute().parents[1]
 
 
 def main() -> None:
@@ -69,7 +69,7 @@ def main() -> None:
           + ", ".join(f"{counts.get(s, 0)} {s.lower()}" for s in ("Covered", "Partial", "Not covered")))
     print(f"\n{'TC-ID':8} {'P':3} {'status':12} {'attack (undefended)':22} {'defended twin':16} last run")
     for row in con.execute(
-            f"""SELECT c.tc_id, tc.priority, c.status,
+            f"""SELECT c.tc_id, COALESCE(c.priority, tc.priority) AS prio, c.status,
                    SUM(CASE WHEN e.is_defended = 0 AND e.is_control = 0 THEN v.failed END),
                    SUM(CASE WHEN e.is_defended = 0 AND e.is_control = 0 THEN v.attempts - v.not_run END),
                    SUM(CASE WHEN e.is_defended = 0 AND e.is_control = 0 THEN v.not_run END),
@@ -82,7 +82,7 @@ def main() -> None:
                 LEFT JOIN row_tc rt ON rt.tc_id = c.tc_id
                 LEFT JOIN eval_row e ON e.row_id = rt.row_id AND e.is_calibration = 0
                 LEFT JOIN v_row_latest v ON v.row_id = e.row_id {gr}
-                GROUP BY c.tc_id ORDER BY tc.priority, c.tc_id""", args):
+                GROUP BY c.tc_id ORDER BY prio, c.tc_id""", args):
         tc, prio, status, landed, ran, notrun, d_landed, d_ran, last, stale = row
         attack = "" if ran is None and not notrun else (
             f"landed {landed}/{ran}" if landed else f"held {ran}/{ran}" if ran else "not run")

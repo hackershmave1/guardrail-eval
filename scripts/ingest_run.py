@@ -107,8 +107,8 @@ def connect(db: Path) -> sqlite3.Connection:
 
 
 # ── coverage ─────────────────────────────────────────────────────────────────
-def coverage_rows() -> list[tuple[str, str, str, str, str, list[str]]]:
-    """(tc_id, status, section, target, notes, row-id tokens) per TC-ID in COVERAGE.md.
+def coverage_rows() -> list[tuple[str, str, str, str, str, str, list[str]]]:
+    """(tc_id, status, priority, section, target, notes, row-id tokens) per TC-ID in COVERAGE.md.
 
     Reads only the tables under "## Coverage by TC-ID"; `section` is the `### <family>`
     heading above each table. Columns: TC-ID | Scenario | P | Status | Harness | Rows.
@@ -124,13 +124,13 @@ def coverage_rows() -> list[tuple[str, str, str, str, str, list[str]]]:
             continue
         if not section or not re.match(r"^\| [A-Z]+-\d", line):
             continue
-        tc, status, target, notes, tokens = _coverage_line(line)
+        tc, status, priority, target, notes, tokens = _coverage_line(line)
         if tc in out:  # a TC-ID split over bands: keep the weaker status, merge the rest
             prev = out[tc]
             status = min(status, prev[1], key=_STATUS_RANK.index)
-            notes = prev[4] + " | " + notes
-            tokens = prev[5] + tokens
-        out[tc] = (tc, status, section, target, notes, tokens)
+            notes = prev[5] + " | " + notes
+            tokens = prev[6] + tokens
+        out[tc] = (tc, status, priority, section, target, notes, tokens)
     return list(out.values())
 
 
@@ -138,26 +138,28 @@ _STATUS_OF = {"🟢": "Covered", "🟡": "Partial", "🔴": "Not covered"}
 _STATUS_RANK = ["Not covered", "Partial", "Covered"]
 
 
-def _coverage_line(line: str) -> tuple[str, str, str, str, list[str]]:
-    """(tc_id, status, target, notes, row-id tokens) from one TC-ID table line."""
+def _coverage_line(line: str) -> tuple[str, str, str, str, str, list[str]]:
+    """(tc_id, status, priority, target, notes, row-id tokens) from one TC-ID table line."""
     cols = [c.strip() for c in line.strip().strip("|").split("|")]
     status = next((v for k, v in _STATUS_OF.items() if k in cols[3]), "Not covered")
     target, notes = (cols[4], cols[5]) if len(cols) > 5 else ("", cols[4] if len(cols) > 4 else "")
     tokens = re.findall(r"`([A-Z][A-Z0-9]+(?:-[A-Za-z0-9]+)+)`", " ".join(cols[4:]))
-    return cols[0], status, target, notes, tokens
+    return cols[0], status, cols[2], target, notes, tokens
 
 
 def snapshot_coverage(con: sqlite3.Connection, cov: list) -> None:
-    current = sorted((tc, st) for tc, st, *_ in cov)
+    current = sorted((tc, st, prio) for tc, st, prio, *_ in cov)
     last = con.execute("SELECT MAX(snapshot_id) FROM coverage_snapshot").fetchone()[0]
     if last is not None:
-        prev = sorted(con.execute("SELECT tc_id, status FROM coverage_status WHERE snapshot_id = ?", (last,)))
+        prev = sorted(con.execute("SELECT tc_id, status, priority FROM coverage_status WHERE snapshot_id = ?",
+                                  (last,)))
         if prev == current:
             return
     cur = con.execute("INSERT INTO coverage_snapshot (taken_at, git_commit, git_dirty) VALUES (?, ?, ?)",
                       (now(), git("rev-parse", "HEAD") or None, int(bool(git("status", "--porcelain", "docs/COVERAGE.md")))))
-    con.executemany("INSERT INTO coverage_status VALUES (?, ?, ?, ?, ?, ?)",
-                    [(cur.lastrowid, tc, st, sec, tgt, notes) for tc, st, sec, tgt, notes, _ in cov])
+    con.executemany("INSERT INTO coverage_status (snapshot_id, tc_id, status, priority, section, target, notes)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [(cur.lastrowid, tc, st, prio, sec, tgt, notes) for tc, st, prio, sec, tgt, notes, _ in cov])
 
 
 # ── rows, trials, transcripts, evidence ───────────────────────────────────────
@@ -202,6 +204,27 @@ def name_flag(text: str) -> str | None:
     return "name-match" if rx and re.search(rx, text, re.I) else None
 
 
+def _norm(name) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(name).lower())
+
+
+def off_pin(pin: str | None, served: list) -> list[str]:
+    """The named upstreams in `served` outside the pin (a comma list of OpenRouter provider
+    slugs, matched ignoring case and punctuation: 'deepinfra' = 'DeepInfra'). Empty when nothing
+    is pinned; a call with no provider name is not counted."""
+    slugs = [_norm(x) for x in (pin or "").split(",") if _norm(x)]
+    return sorted({str(n) for n in served
+                   if n and slugs and not any(_norm(n).startswith(s) or s.startswith(_norm(n)) for s in slugs)})
+
+
+def _served(out: dict, wire: dict | None) -> list:
+    """Who served each model call: the lab transcript's `served_by`, or the slot reply's provider."""
+    if out.get("transcript"):
+        return list(out["transcript"].get("served_by") or [])
+    reply = (wire or {}).get("reply")
+    return [reply.get("provider")] if isinstance(reply, dict) else []
+
+
 def _event_item(e: dict) -> tuple:
     source = "stdout" if str(e.get("held_by", "")).startswith("app:") else "slot_log.jsonl"
     return ("block_event", f"{e.get('held_by')} {e.get('action')} at {e.get('hop')}: {e.get('subject')}",
@@ -237,6 +260,25 @@ def _register_guardrail(con: sqlite3.Connection, meta: dict) -> str:
     return gid
 
 
+def run_effort(pf: dict | None) -> str | None:
+    """The reasoning efforts a run asked for: every row's `reasoning_effort` var and every
+    provider config's, distinct and sorted ("low", "high, low"); None when nothing set one
+    (a2a makes no model call)."""
+    pf = pf or {}
+    found = {str(e) for e in (*_row_efforts(pf), *_provider_efforts(pf)) if e}
+    return ", ".join(sorted(found)) or None
+
+
+def _row_efforts(pf: dict) -> list:
+    return [((r.get("testCase") or {}).get("vars") or {}).get("reasoning_effort")
+            for r in pf.get("results", {}).get("results", [])]
+
+
+def _provider_efforts(pf: dict) -> list:
+    providers = (pf.get("config") or {}).get("providers") or []
+    return [(p.get("config") or {}).get("reasoning_effort") for p in providers if isinstance(p, dict)]
+
+
 def _insert_run(con: sqlite3.Connection, meta: dict, run_dir: Path, pf: dict | None) -> str:
     """The run row; returns its status (aborted when promptfoo wrote no output)."""
     gid = _register_guardrail(con, meta)
@@ -248,7 +290,7 @@ def _insert_run(con: sqlite3.Connection, meta: dict, run_dir: Path, pf: dict | N
                 (meta["run_id"], meta["config"], meta["started_at"], meta.get("finished_at"), status,
                  meta["git_commit"], int(meta["git_dirty"]), meta["promptfoo_version"],
                  (pf or {}).get("evalId"), meta["carrier_model"], meta.get("provider_pin") or None,
-                 meta.get("reasoning_effort"), gid, int(meta["repeat"]), meta.get("filter") or None,
+                 run_effort(pf), gid, int(meta["repeat"]), meta.get("filter") or None,
                  int(meta["concurrency"]), rel(run_dir),
                  json.dumps((pf or {}).get("results", {}).get("stats")) if pf else None))
     return status
@@ -309,15 +351,17 @@ def _transcript(r: dict, out: dict, wire: dict | None) -> tuple[str, str, str | 
 
 
 def _insert_transcript(con: sqlite3.Connection, trial_id: int, fmt: str, conversation: str,
-                       forwarded: str | None, answer: str) -> bool:
-    """Store the transcript whole; returns whether it was flagged for a banned name."""
+                       forwarded: str | None, answer: str, off: bool) -> bool:
+    """Store the transcript whole, flagged for a banned name and for a call served off the pin;
+    returns whether it was flagged for a banned name."""
     whole = conversation + answer + (forwarded or "")
-    flag = name_flag(whole)
+    name = name_flag(whole)
+    flags = ", ".join(f for f in (name, "off-pin" if off else None) if f) or None
     lab = fmt == "lab-compact-v1"
     con.execute("INSERT INTO transcript VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (trial_id, fmt, conversation, forwarded, None if lab else answer,
-                 answer[-20000:] if lab else None, sha(whole), len(whole.encode("utf-8")), flag))
-    return bool(flag)
+                 answer[-20000:] if lab else None, sha(whole), len(whole.encode("utf-8")), flags))
+    return bool(name)
 
 
 def _slot_evidence(wire: dict, forwarded: str | None) -> tuple:
@@ -337,10 +381,12 @@ def _result_parts(r: dict) -> tuple[str, dict, dict, str]:
             (r.get("gradingResult") or {}).get("reason") or r.get("error") or "")
 
 
-def _insert_trials(con: sqlite3.Connection, meta: dict, pf: dict, cov: list, slot: dict) -> tuple[int, int]:
-    """Every promptfoo result as a trial with its transcript and evidence: (trials, flagged)."""
+def _insert_trials(con: sqlite3.Connection, meta: dict, pf: dict, cov: list,
+                   slot: dict) -> tuple[int, int, list[list[str]]]:
+    """Every promptfoo result as a trial with its transcript and evidence:
+    (trials, name-flagged transcripts, each off-pin trial's off-pin upstreams)."""
     attempts: dict[str, int] = {}
-    flagged = 0
+    flagged, off_trials = 0, []
     for r in pf["results"]["results"]:
         desc, v, out, reason = _result_parts(r)
         row_id = _insert_row(con, meta["config"], desc, v, cov)
@@ -348,11 +394,13 @@ def _insert_trials(con: sqlite3.Connection, meta: dict, pf: dict, cov: list, slo
         trial_id = _insert_trial(con, meta["run_id"], row_id, attempts[row_id], r, v, out, reason)
         wire = slot.get(out.get("trial_id")) if out.get("trial_id") else None
         fmt, conversation, forwarded, answer = _transcript(r, out, wire)
-        flagged += _insert_transcript(con, trial_id, fmt, conversation, forwarded, answer)
+        off = off_pin(meta.get("provider_pin"), _served(out, wire))
+        off_trials += [off] if off else []
+        flagged += _insert_transcript(con, trial_id, fmt, conversation, forwarded, answer, bool(off))
         items = evidence_items(out, reason) + ([_slot_evidence(wire, forwarded)] if wire else [])
         con.executemany("INSERT INTO evidence (trial_id, kind, summary, payload, source_path) VALUES (?, ?, ?, ?, ?)",
                         [(trial_id, *it) for it in items])
-    return sum(attempts.values()), flagged
+    return sum(attempts.values()), flagged, off_trials
 
 
 def ingest(run_dir: Path, db: Path) -> None:
@@ -370,10 +418,12 @@ def ingest(run_dir: Path, db: Path) -> None:
         if not pf:
             print(f"{meta['run_id']}: no promptfoo output; recorded as {status}")
             return
-        trials, flagged = _insert_trials(con, meta, pf, cov, _slot_log(run_dir))
-
+        trials, flagged, off_trials = _insert_trials(con, meta, pf, cov, _slot_log(run_dir))
+    upstreams = ", ".join(sorted({n for off in off_trials for n in off}))
     print(f"{meta['run_id']}: {trials} trials ingested into {db}"
-          + (f"; {flagged} transcripts flagged name-match" if flagged else ""))
+          + (f"; {flagged} transcripts flagged name-match" if flagged else "")
+          + (f"; {len(off_trials)} trials served off the pin {meta['provider_pin']} ({upstreams})"
+             if off_trials else ""))
 
 
 def main() -> None:

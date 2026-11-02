@@ -249,7 +249,7 @@ class EvidenceCapture(unittest.TestCase):
             payload = con.execute(
                 "SELECT payload FROM evidence WHERE source_path = 'response.output.evidence_attempts'").fetchone()[0]
             self.assertEqual(json.loads(payload), output["evidence_attempts"][0])
-            self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], 2)
+            self.assertEqual(con.execute("PRAGMA user_version").fetchone()[0], 3)
         finally:
             con.close()
         proof = subprocess.run(["jq", "-f", str(ROOT / "scripts/proof.jq"), str(run / "tools.json")],

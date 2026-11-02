@@ -191,9 +191,10 @@ def _reset_state(lab_dir: Path, cfg: dict) -> None:
                 # the one the oracle reads. Unlinking orphans that inode and the
                 # oracle reads a fresh empty file → false NOT-RUN.
                 # Everything else is unlinked: a JSON document truncated to ""
-                # is invalid JSON (Lab 06's listener crashes reading an empty
-                # exfil_log.json → the exfil never lands → false PASS), and
-                # memory.json must be ABSENT so the lab recreates it.
+                # is invalid JSON for any reader that parses it (Lab 06's
+                # listener tolerates it and starts a fresh list, but a lab that
+                # doesn't would lose the exfil → false PASS), and memory.json
+                # must be ABSENT so the lab recreates it.
                 if target.is_file() and rel.endswith((".jsonl", ".log")):
                     target.write_text("", encoding="utf-8")
                 else:
