@@ -1,10 +1,9 @@
 # STATUS
 
-As of 2026-11-02 · branch `ub-targets-7-9` (off `main` at `a611fe5`, where PR #22 merged the ingest
-work): ub-mode targets 7-9 are done, so **every ub-mode target is done or deferred**. PR #23 is
-open, waiting on the owner's go. After it merges, the pinned baseline reruns are next (the owner's
-order, 2026-11-01). Rules live in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship`
-skill.
+As of 2026-11-02 · branch `status-after-23` (off `main` at `05916ce`, where PR #23 merged ub-mode
+targets 7-9): **every ub-mode target is done or deferred**, so the pinned baseline reruns are next
+(the owner's order, 2026-11-01). One owner decision comes first: reasoning effort for `tools`.
+Rules live in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship` skill.
 
 ```mermaid
 flowchart LR
@@ -12,52 +11,28 @@ flowchart LR
     W --> C["Owner: visual check<br/>+ small decisions"]
     C --> D["Phase B<br/>gateway + scan adapters<br/>un-gate vendor targets"]
     D --> E["Phase 2<br/>vendors in the loop"]
-    U["ub-mode targets 1-6 ✅<br/>PRs #16-#22"] -.-> T["targets 7-9 ✅<br/>_delivered, run_meta, edit hook<br/>PR open"]
-    T -.-> B["pinned<br/>baseline reruns"]
+    U["ub-mode targets 1-9 ✅<br/>PRs #16-#23"] -.-> R["Owner: tools<br/>reasoning effort"]
+    R -.-> B["pinned<br/>baseline reruns"]
     P["provider pinned ✅<br/>deepinfra bf16<br/>served_by recorded ✅"] -.-> B
 ```
 
-## Waiting on the owner: PR #23, `ub-targets-7-9`
-
-Each target follows the job pattern: pins → mutator → split → gates → proof. Six commits, two per
-target.
-
-- ✅ **Target 7, `agentic_goat_provider._delivered`** (`5541e85` pins, `0edf2eb` split):
-  - `tests/test_delivered.py`, 13 tests: the marker in system / user / tool messages and in tool
-    descriptions; the model's own echo is not a delivery; `target_hop` read only from system
-    messages, and only the target agent's call is searched.
-  - `_role_text` replaces two near-copies of one join. CRAP 13 → 8; mutator 7 / 7.
-  - **Proof:** every stored lab transcript (454 trials, 132 with `target_hop`) replayed through
-    `main`'s and the new `_delivered`: identical on all 454. A MEM-01 scratch run on the new code
-    and a control on `main`'s code gave the same outcomes, with delivery proven on every trial.
-- ✅ **Target 8, `run_meta`** (`dd88c9e` pins, `8816e97` split):
-  - `tests/test_run_meta.py`, 18 tests, in process (git and promptfoo faked, the `.env` view
-    cleared): every `run.json` field and default, complete vs aborted, the `check-headers` exit,
-    and `sh`.
-  - `main` only dispatches to `_check_headers` / `_start` / `_finish`; `ROOT` uses `.absolute()`.
-    `main` 90 → 3, `header_names` 12 → 3; mutator 21 / 21.
-  - **Proof:** `main`'s and the new `run_meta` run against the real git, promptfoo and `.env`
-    (start, finish 100 and 1, check-headers): identical `run.json` keys, order, values (minus
-    times) and byte length.
-- ✅ **Target 9, the edit hook `.claude/hooks/guard_edit.py`** (`c5469f4` pins, `28cb473` split):
-  - `tests/test_guard_edit.py`, 11 tests, with synthetic patterns patched in for `.env`. It denies
-    by key and path and never echoes the matched text. Every edit tool's new text is checked;
-    `.env*`, files outside the repo and empty patterns are skipped.
-  - `_checked` and `_match` were split out; `ROOT` uses `.absolute()` (with `.resolve()`, a
-    symlinked checkout would skip every file). `main` 90 → 6, `new_text` 20 → 4; mutator 12 / 12.
-  - **Proof:** the old and new hook ran on every tracked text file as a Write and an Edit, with
-    the real `.env` patterns: 228 / 228 identical. The live hook exits 0 on clean text.
-- **Gates:** 334 tests OK (292 on `main`). Every mutator run was checked with `--mutate-all` and a
-  weak test that left survivors. dryer: no pair in the changed files.
-
 ## Next steps, in order
 
-1. **Owner:** say "merge" for PR #23. Claude then runs `gh pr merge 23 --merge
-   --match-head-commit <sha>`, then `git checkout main && git pull --ff-only`, and reruns the tests
-   (334).
-2. **Owner: decide on reasoning effort** for `tools`, `a2a` and `web_server` before the reruns.
-   Changing it now costs nothing extra, since their baselines are about to be rerun.
-3. **Pinned baseline reruns:**
+1. **Owner: decide on reasoning effort for `tools`** (asked 2026-11-02):
+   - Every model-calling config pins the carrier at `low` except `tools`: `mcp` (`defaultTest`),
+     `rag`, `memory`, `web`, `model_channel` and the generated `web_server` rows (per row).
+     `a2a` needs nothing: Lab 07 makes no model call.
+     `redteam` (Lab 03, generated probes) is also at the default, but it is not in the full suite.
+   - `tools` runs 8 rows on Labs 01 and 03 at the provider default. Lab 01's rows in `mcp` run at
+     `low`, so the same lab runs at two efforts. In run #1, `TOOLS-EXF02` was NOT-RUN once and
+     resampled 5 times in 6 trials; the 10-29 rerun resampled 3 times in 3 trials.
+   - Proposed: one `defaultTest.vars.reasoning_effort: low` in `promptfoo/tools.yaml` (as in
+     `mcp.yaml`), a resolved-log line under A1 in `docs/OPEN_QUESTIONS.md`, and the reruns
+     recording it. The tools rerun is then a new baseline at `low`, not row-comparable with run #1.
+   - Side gap: the store's `run.reasoning_effort` is NULL for every run. Effort is a per-row var,
+     and `run_meta` never records it.
+2. **Owner: say "go" for the pinned baseline reruns.**
+3. **Pinned baseline reruns** (after 1 and 2):
    - `REPEAT=3 scripts/run_evals.sh` (every config) into the real store. Each run is pinned to
      `deepinfra` and records `served_by` per call.
    - Compare each row with run #1 and the 10-29 reruns. Then update `docs/COVERAGE.md` (source of
@@ -78,9 +53,9 @@ target.
 | 4 | `shim/sitecustomize.py` `_recorded` | 110 → 6 | #19 |
 | 5 | `lint_prompts.py` `rows` / `check` / `main` | 316 / 270 / 61 → 6 / 7 / 8 | #21 |
 | 6 | `ingest_run.py` `ingest` / `load_catalog` | 70 / 117 → 5 / 3 | #22 |
-| 7 | `agentic_goat_provider._delivered` | 13 → 8 | #23 (open) |
-| 8 | `run_meta.main` / `header_names` | 90 / 12 → 3 / 3 | #23 (open) |
-| 9 | `.claude/hooks/guard_edit.py` `main` / `new_text` | 90 / 20 → 6 / 4 | #23 (open) |
+| 7 | `agentic_goat_provider._delivered` | 13 → 8 | #23 |
+| 8 | `run_meta.main` / `header_names` | 90 / 12 → 3 / 3 | #23 |
+| 9 | `.claude/hooks/guard_edit.py` `main` / `new_text` | 90 / 20 → 6 / 4 | #23 |
 
 **Still over CRAP 10: deferred** (2026-11-02; the owner took targets 7-9 and left the rest).
 Ranked by the same test as targets 1-9: could a bug silently misgrade a trial or corrupt the
@@ -111,8 +86,7 @@ well-tested code, or untested code that can't touch a verdict.
   trials) plus three real reruns from 2026-10-29: `20261029T144843Z-mcp`,
   `20261029T145209Z-tools` and `20261029T145414Z-model_channel` (a 6-row filtered rerun). Those were
   all unpinned. Runs from 2026-11-01 are pinned to `deepinfra` (A1 (a) in
-  `docs/OPEN_QUESTIONS.md`). 292 unit tests on `main`, 334 on `ub-targets-7-9`; lint shows
-  0 errors.
+  `docs/OPEN_QUESTIONS.md`). 334 unit tests on `main`; lint shows 0 errors.
 - ✅ **PR #11 merged** (`3df20d3`): grading review fixes, the operator notebook's Part B, and an
   operator-first README. After a code update, restart the notebook kernel (else
   `AttributeError: ... setup_ui`).
@@ -144,6 +118,10 @@ well-tested code, or untested code that can't touch a verdict.
   real configs.
 - ✅ **PR #22 merged** (`a611fe5`): `ingest_run.py` pinned (32 tests) and split into single-purpose
   steps. All 77 real run dirs were ingested by the old and new code into identical stores.
+- ✅ **PR #23 merged** (`05916ce`): ub-mode targets 7-9. `_delivered` (13 tests; 454 stored trials
+  replayed identically), `run_meta` (18 tests; identical `run.json` on real inputs) and the edit
+  hook (11 tests with synthetic patterns; 228 / 228 identical with the real ones). `run_meta` and
+  the hook now build `ROOT` with `.absolute()`.
 
 ## ub-mode baselines (2026-11-02)
 
@@ -151,8 +129,7 @@ well-tested code, or untested code that can't touch a verdict.
   `guardrail_slot/proxy.py`, `shim/sitecustomize.py`, `_compact_transcript`, `lint_prompts.py`,
   `ingest_run.py`, `_delivered`, `run_meta.py` and the edit hook. `model_channel_provider.py` is at
   94 / 99 (5 equivalent).
-- **crapper:** 81 of 323 functions over CRAP 10 (on `ub-targets-7-9`; 86 on `main`, 110 at the
-  start). 42 of the 81 are `operator_lib`, skipped.
+- **crapper:** 81 of 323 functions over CRAP 10 on `main` (110 at the start). 42 of the 81 are `operator_lib`, skipped.
 - **dryer @ 0.8:** one pair at 0.85, `lab04_aggregation_leak.py:73-99` ≈
   `lab04_proprietary_leak.py:92-120`.
 - **Fast mutator runs and the proof that workers ran:** in `.claude/rules/ub-mode.md`.
@@ -230,7 +207,7 @@ well-tested code, or untested code that can't touch a verdict.
 - **Leftovers:**
   - 24 scratch runs in `results/scratch/runs/` (one, `20261026T131657Z-mcp`, has no `run.json`).
   - `agentic-goat/labs/03-red-team-assessment/state/` (untracked lab state).
-  - Local branches the owner may prune: all 17 besides `main` and `ub-targets-7-9` are merged
+  - Local branches the owner may prune: all 18 besides `main` and `status-after-23` are merged
     into `main` (`git branch --merged main`, checked 2026-11-02).
   - Backup at `~/Projects/GuardRails/guardrail-eval-backup-20261028.tar.gz`.
 
@@ -241,5 +218,4 @@ well-tested code, or untested code that can't touch a verdict.
 - Rows needing owner input: harm carrier (A1b → JB-01, JB-02, TOX-01); other targets (A6 → OUT-03,
   C2 → PI-06, A5 → MM-01/02).
 - Coverage dashboard (artifact NzLwm4t7…): not to be refreshed (owner, 2026-10-26).
-- Baseline reruns: until PR #23 merges (every other ub-mode target is deferred;
-  owner's order, 2026-11-01).
+- Baseline reruns: until the owner decides on `tools` reasoning effort and says go.
