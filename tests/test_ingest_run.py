@@ -1,7 +1,7 @@
 """Loading a run into the results store (scripts/ingest_run.py), on temp run dirs and a temp DB.
 
-Nothing reads results/ or the real workbook: the run dir, the workbook and COVERAGE.md are
-written per test, and the store is a fresh SQLite file built from db/schema.sql.
+Nothing reads results/: the run dir and COVERAGE.md are written per test, and the store is a
+fresh SQLite file built from db/schema.sql.
 """
 
 from __future__ import annotations
@@ -14,7 +14,6 @@ import sys
 import tempfile
 import textwrap
 import unittest
-import zipfile
 from pathlib import Path
 from unittest import mock
 
@@ -225,62 +224,6 @@ class Coverage(Temp):
                          .fetchone(), (None, 0))
 
 
-def cell(ref, *runs):
-    text = "".join(f"<r><t>{r}</t></r>" for r in runs)
-    return f'<c r="{ref}" t="inlineStr"><is>{text}</is></c>'
-
-
-def write_workbook(path: Path, rows: list[str]) -> None:
-    ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"'
-    rns = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
-    with zipfile.ZipFile(path, "w") as z:
-        z.writestr("xl/workbook.xml", f'<workbook {ns} {rns}><sheets>'
-                   '<sheet name="Requirements" r:id="rId1"/><sheet name="Use Cases" r:id="rId2"/>'
-                   "</sheets></workbook>")
-        z.writestr("xl/_rels/workbook.xml.rels",
-                   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-                   '<Relationship Id="rId1" Target="worksheets/sheet1.xml"/>'
-                   '<Relationship Id="rId2" Target="/xl/worksheets/sheet2.xml"/></Relationships>')
-        z.writestr("xl/worksheets/sheet1.xml", f"<worksheet {ns}><sheetData/></worksheet>")
-        z.writestr("xl/worksheets/sheet2.xml",
-                   f"<worksheet {ns}><sheetData>{''.join(f'<row>{r}</row>' for r in rows)}</sheetData></worksheet>")
-
-
-class Catalog(Temp):
-    HEADER = (cell("A3", "TC-ID") + cell("B3", "Category") + cell("C3", "Scenario (Use Case)")
-              + cell("D3", "Priority") + cell("E3", " Guardrail Scope ") + cell("F3", "Attack Target")
-              + cell("G3", "Measurable Success Criteria"))
-
-    def setUp(self):
-        super().setUp()
-        self.con = sqlite3.connect(":memory:")
-        self.con.executescript(ingest_run.SCHEMA.read_text(encoding="utf-8"))
-        self.book = self.tmp / "book.xlsx"
-        self.patch(ingest_run, WORKBOOK=self.book, now=lambda: "2026-11-02T00:00:00Z")
-
-    def test_the_use_cases_tab_is_loaded_once(self):
-        write_workbook(self.book, [
-            cell("A1", "AI Guardrails POC"),
-            cell("A2", "PI-00") + cell("B2", "before the header"),
-            self.HEADER,
-            cell("A4", "PI-01") + cell("B4", "Prompt ", "injection") + cell("C4", "Direct")
-            + cell("D4", "P0") + cell("E4", "In scope") + cell("F4", "Model-level") + cell("G4", " Blocks 95% "),
-            cell("A5", "Notes") + cell("B5", "not a TC-ID"),
-            cell("A6", "DLP-05") + cell("B6", "Data loss") + cell("D6", "P1") + cell("F6", "Both")])
-        ingest_run.load_catalog(self.con)
-        ingest_run.load_catalog(self.con)
-        self.assertEqual(self.con.execute("SELECT * FROM catalog").fetchall(),
-                         [("4.2", "book.xlsx", "2026-11-02T00:00:00Z")])
-        self.assertEqual(self.con.execute("SELECT * FROM test_case ORDER BY tc_id").fetchall(), [
-            ("DLP-05", "4.2", "Data loss", "", "P1", "", "Both", None),
-            ("PI-01", "4.2", "Prompt injection", "Direct", "P0", "In scope", "Model-level", "Blocks 95%")])
-
-    def test_a_missing_workbook_is_noted(self):
-        _, _, err = self.quiet(ingest_run.load_catalog, self.con)
-        self.assertEqual(err, "note: book.xlsx not found; catalog not loaded\n")
-        self.assertEqual(self.con.execute("SELECT COUNT(*) FROM catalog").fetchone()[0], 0)
-
-
 class Connect(Temp):
     def schema(self, version, migrations=()):
         d = self.tmp / "db"
@@ -343,7 +286,7 @@ class Ingest(Temp):
         self.db = self.tmp / "store.db"
         self.run_dir = self.tmp / "runs" / "r1"
         self.run_dir.mkdir(parents=True)
-        self.patch(ingest_run, WORKBOOK=self.tmp / "missing.xlsx", coverage_rows=lambda: COV,
+        self.patch(ingest_run, coverage_rows=lambda: COV,
                    git=lambda *a: "", name_flag=lambda text: "name-match" if "Globex" in text else None)
 
     def write(self, meta=None, results=None, slot_lines=None):
@@ -365,6 +308,11 @@ class Ingest(Temp):
             return con.execute(sql).fetchall()
         finally:
             con.close()
+
+    def test_an_ingest_loads_no_catalog_and_says_nothing_about_one(self):
+        self.write(results=[])
+        _, _, err = self.quiet(ingest_run.ingest, self.run_dir, self.db)
+        self.assertEqual((err, self.rows("SELECT COUNT(*) FROM catalog")), ("", [(0,)]))
 
     def test_a_lab_run(self):
         lab_out = {"outcome": "LANDED", "canary_reached": True, "ran": True, "delivered": True, "detected": False,
@@ -452,11 +400,11 @@ class Ingest(Temp):
         [(c1, f1), (c2, _)] = self.rows("SELECT conversation, forwarded_body FROM transcript ORDER BY trial_id")
         self.assertEqual(("Grüße" in c1, "Grüße" in f1, "München" in c2), (True, True, True))
 
-    def test_a_vendor_guardrail_is_registered_by_its_id(self):
-        self.write(meta={"guardrail_id": "paloalto-airs-1-ai_gateway", "placement": "ai_gateway"}, results=[])
+    def test_a_guardrail_is_registered_by_its_id(self):
+        self.write(meta={"guardrail_id": "acmeguard-1-ai_gateway", "placement": "ai_gateway"}, results=[])
         self.ingest()
         self.assertEqual(self.rows("SELECT guardrail_id, vendor, placement FROM guardrail"),
-                         [("paloalto-airs-1-ai_gateway", "paloalto", "ai_gateway")])
+                         [("acmeguard-1-ai_gateway", "acmeguard", "ai_gateway")])
 
     def test_a_slot_action_without_a_reason(self):
         self.write(meta={"config": "model_channel"},

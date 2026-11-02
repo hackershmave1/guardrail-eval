@@ -35,7 +35,7 @@ for r in json.load(open(src))["results"]["results"]:
     rows.setdefault(desc, []).append((oc, reason))
     v = r["testCase"].get("vars") or {}
     if c == "model_channel":
-        # Per family / PII type, never averaged across families (workbook rule).
+        # Per family / PII type, never averaged across families.
         key = "calibration" if desc.startswith("CAL-") else \
             f"{v.get('oracle')}:{v.get('family') or v.get('pii_type') or v.get('lookalike_type')}"
         groups.setdefault(key, []).append(oc)

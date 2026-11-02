@@ -9,8 +9,8 @@ The run dir is written by scripts/run_evals.sh:
     slot_log.jsonl      guardrail-slot wire log (model_channel only)
 
 Creates the DB from db/schema.sql if it doesn't exist. Append-only: a run_id that is
-already in the DB is skipped. Each ingest also records the workbook catalog (once per
-version) and a COVERAGE.md snapshot (only when it changed since the last one).
+already in the DB is skipped. Each ingest also records a COVERAGE.md snapshot (only when it
+changed since the last one).
 
 Verdicts come from the provider's `outcome` (promptfoo/providers/outcome.py, the same
 rule summarize.py and assert_canary.py use); ERROR if promptfoo errored with no output.
@@ -33,8 +33,6 @@ import re
 import sqlite3
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
-import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -44,8 +42,6 @@ import outcome  # noqa: E402  (one grading rule)
 
 SCHEMA = ROOT / "db" / "schema.sql"
 DEFAULT_DB = ROOT / "results" / "guardrail_eval.db"
-WORKBOOK = ROOT / "AI_Guardrails_POC_4_2.xlsx"
-CATALOG_VERSION = "4.2"
 
 USE_CASE = {"mcp": "MCP", "rag": "RAG", "tools": "Tools", "web": "Web",
             "web_server": "Web", "model_channel": "Model channel", "redteam": "Redteam"}
@@ -110,53 +106,7 @@ def connect(db: Path) -> sqlite3.Connection:
     return con
 
 
-# ── catalog + coverage ────────────────────────────────────────────────────────
-def _col(ref: str) -> str:
-    return re.match(r"[A-Z]+", ref).group(0)
-
-
-_NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
-
-
-def _use_cases_sheet(z: zipfile.ZipFile) -> ET.Element:
-    rid = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
-    rels = {r.get("Id"): r.get("Target") for r in ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))}
-    sheet = next(s for s in ET.fromstring(z.read("xl/workbook.xml")).find("m:sheets", _NS)
-                 if s.get("name") == "Use Cases")
-    return ET.fromstring(z.read("xl/" + rels[sheet.get(rid)].lstrip("/").replace("xl/", "")))
-
-
-def _use_cases(root: ET.Element) -> list[tuple]:
-    """One test_case row per TC-ID row under the header row (the row whose column A is TC-ID)."""
-    ns = _NS
-    header, cases = None, []
-    for row in root.iter(f"{{{ns['m']}}}row"):
-        # Cells are sparse: key them by column letter, not position.
-        cells = {_col(c.get("r")): "".join(x.text or "" for x in c.iter() if x.tag.endswith("}t"))
-                 for c in row.findall("m:c", ns)}
-        if header is None:
-            if cells.get("A") == "TC-ID":
-                header = {v.strip(): k for k, v in cells.items()}
-            continue
-        if re.match(r"^[A-Z]+-\d", cells.get("A", "")):
-            get = lambda name: cells.get(header.get(name, ""), "").strip()
-            cases.append((get("TC-ID"), CATALOG_VERSION, get("Category"), get("Scenario (Use Case)"),
-                          get("Priority"), get("Guardrail Scope"), get("Attack Target"),
-                          get("Measurable Success Criteria") or None))
-    return cases
-
-
-def load_catalog(con: sqlite3.Connection) -> None:
-    if con.execute("SELECT 1 FROM catalog WHERE version = ?", (CATALOG_VERSION,)).fetchone():
-        return
-    if not WORKBOOK.exists():
-        print(f"note: {WORKBOOK.name} not found; catalog not loaded", file=sys.stderr)
-        return
-    cases = _use_cases(_use_cases_sheet(zipfile.ZipFile(WORKBOOK)))
-    con.execute("INSERT INTO catalog VALUES (?, ?, ?)", (CATALOG_VERSION, WORKBOOK.name, now()))
-    con.executemany("INSERT INTO test_case VALUES (?, ?, ?, ?, ?, ?, ?, ?)", cases)
-
-
+# ── coverage ─────────────────────────────────────────────────────────────────
 def coverage_rows() -> list[tuple[str, str, str, str, str, list[str]]]:
     """(tc_id, status, section, target, notes, row-id tokens) per TC-ID in COVERAGE.md.
 
@@ -412,7 +362,6 @@ def ingest(run_dir: Path, db: Path) -> None:
         if con.execute("SELECT 1 FROM run WHERE run_id = ?", (meta["run_id"],)).fetchone():
             print(f"{meta['run_id']}: already ingested, skipped")
             return
-        load_catalog(con)
         cov = coverage_rows()
         snapshot_coverage(con, cov)
         pf_path = run_dir / f"{meta['config']}.json"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate promptfoo/datasets/jb07_dilution.yaml (workbook JB-07, P3).
+"""Generate promptfoo/datasets/jb07_dilution.yaml (JB-07, P3).
 
 JB-07 — context-window dilution. A long block of benign filler is placed around
 a small injection, so a guardrail that only inspects the first/last N tokens (a

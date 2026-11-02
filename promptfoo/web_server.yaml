@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 # Promptfoo config — USE CASE: Web (PI-03) served by a REAL local web server
-# Workbook TC-ID: PI-03 (indirect injection via fetched web page content, P0).
+# TC-ID: PI-03 (indirect injection via fetched web page content, P0).
 # Carrier matrix: the SAME hidden instruction in ~11 carrier styles (HTML comment,
 # white-on-white, hidden/display:none div, tiny font, meta tag, img alt, aria-hidden,
 # code block, JSON-LD, markdown), measuring which get a web-page instruction past a

@@ -5,26 +5,27 @@ Facts for every session on this repo. Read this, then `STATUS.md` (where we are)
 
 ## What this project is
 
-A POC that compares **3rd-party AI guardrail vendors** (Cato/Aim, Noma, Palo Alto AIRS, Zscaler AI
-Guard). Promptfoo runs the test cases from `AI_Guardrails_POC_4_2.xlsx` (v4.2, 42 TC-IDs) against
-**AgenticGoat**, a deliberately vulnerable agentic app (git submodule `agentic-goat/`).
+A Promptfoo harness that evaluates an agentic application on **28 test cases** (TC-IDs,
+`docs/COVERAGE.md`): it attacks **AgenticGoat**, a deliberately vulnerable agentic app (git
+submodule `agentic-goat/`), and grades each attack by its side effect. It is for evaluating AI
+guardrails, or simply for learning how agentic attacks work and how to grade them.
 
-- **The subject under test is the vendor guardrail, never the app's own defences.** A vendor sits
+- **The subject under test is the guardrail, never the app's own defences.** A guardrail sits
   inline at a gateway in the request path to the model, or behind pre/post model-I/O hooks
   (`docs/ARCHITECTURE.md`).
-- **Phase 1 (now): no vendor in the loop.** Build the attacks, oracles and guardrail slots so every
-  undefended baseline is red and a vendor has something to turn green. Over-refusal, latency,
-  fail-open and judge attacks wait until a vendor is wired in.
+- **Today no guardrail is in the loop.** The attacks, oracles and guardrail slots make every
+  undefended baseline red, so a guardrail has something to turn green. Over-refusal, latency,
+  fail-open and judge attacks wait until a guardrail is wired in.
 
 ## Where things live
 
 | Doc | Holds |
 |---|---|
 | `STATUS.md` | Current snapshot only: where we are, the next step, what gates it |
-| `docs/COVERAGE.md` | Status of every TC-ID (parsed by the ingest and the notebook) and how the rest get built |
+| `docs/COVERAGE.md` | The 28 TC-IDs and their rows (parsed by the ingest and the notebook), plus possible extensions |
 | `docs/TEST_CASES.md` | Per-row specs: objective, harness, oracle, result |
-| `docs/REQUIREMENTS.md` | Workbook REQ-* prerequisites and whether the repo meets them |
-| `docs/ARCHITECTURE.md` | Wiring, channels, vendor placement, oracles, evidence sinks |
+| `docs/REQUIREMENTS.md` | REQ-* prerequisites and whether the repo meets them |
+| `docs/ARCHITECTURE.md` | Wiring, channels, guardrail placement, oracles, evidence sinks |
 | `docs/OPEN_QUESTIONS.md` | Open questions, plus the log of resolved decisions |
 | `docs/RESULTS_DB.md` | Results store design and operation |
 | `README.md` | What this is, setup, running, reading proof |
@@ -44,9 +45,11 @@ datasets; an edit hook blocks the real company name and other banned text (regex
 - **Nothing the model sees may name the test or defend itself.** No test vocabulary in
   model-facing text, no "do not disclose" hardening. `scripts/lint_prompts.py` gates every run.
 - **Never invent requirements.** Every row cites its TC-ID; every design choice that rests on a
-  prerequisite cites its REQ-ID. If the workbook is ambiguous, add a question to
+  prerequisite cites its REQ-ID. If a test case's intent is ambiguous, add a question to
   `docs/OPEN_QUESTIONS.md` instead of guessing.
-- **Never name the real logistics company** (the one the workbook redacts): no name, parent group,
+- **Keep repo text product-neutral.** No named guardrail products, and no outside spreadsheet
+  named as the source of the test cases: TC-IDs and REQ-IDs are this harness's own catalog.
+- **Never name the real logistics company** behind the DLP-05 formats: no name, parent group,
   HQ address, number prefixes or URLs. The carrier in every dataset and doc is the fictitious
   **Acme Parcel** (DE "Acme Paket").
 - **The submodule is never edited.** Fixtures, drivers and wrapper servers live in this repo.
@@ -55,9 +58,6 @@ datasets; an edit hook blocks the real company name and other banned text (regex
 - **Docs describe the present.** Rewrite `STATUS.md` as a fresh snapshot, never append; delete
   completed plans; a decision worth keeping goes in the resolved log of `docs/OPEN_QUESTIONS.md`;
   change history lives in git.
-- **Workbook tabs:** `Use Cases`, `Requirements`, `Success Oracles`, `Enforcement Placement`,
-  `Datasets`, `Models Under Test`. Read it with stdlib only (inline strings: parse
-  `xl/worksheets/*.xml` with `zipfile` + `xml.etree`, no openpyxl).
 
 ## Two harness shapes
 
@@ -78,7 +78,7 @@ db/                      schema.sql (user_version = migration number) + NNN_*.sq
 promptfoo/*.yaml         configs; datasets/, drivers/, web_fixtures/ (server + generated pages)
 promptfoo/providers/     both providers, outcome.py, assert_canary.py, shim/ (pre-image recorder,
                          empty-turn resampling, EXTRA_HEADERS)
-promptfoo/guardrail_slot/proxy.py   model-channel slot: where a vendor plugs in
+promptfoo/guardrail_slot/proxy.py   model-channel slot: where a guardrail plugs in
 notebooks/               operator.ipynb (guided demo + console) + operator_lib.py (its logic)
 scripts/                 bootstrap.sh, run_evals.sh, gen_*.py (generators), lint_prompts.py, ingest_run.py,
                          db_report.py, summarize.py, proof.jq, pair_filter.py, run_meta.py

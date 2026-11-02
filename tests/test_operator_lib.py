@@ -28,7 +28,7 @@ class Docs(unittest.TestCase):
         cls.entries = [en for s in op.test_cases() for en in s["entries"]]
 
     def test_coverage_parses_every_tc(self):
-        self.assertEqual(len(self.cov), 42)
+        self.assertEqual(len(self.cov), 28)
         for tc, c in self.cov.items():
             self.assertIn(c["status"], op.STATUS_STYLE, tc)
             self.assertRegex(c["priority"], r"^P[0-3]$", tc)
@@ -202,18 +202,18 @@ def _row(row_id, state, tcs=("PI-04",), **kw):
 class OperatorFlow(unittest.TestCase):
     """B1 set up, B2 run, B3 review: the logic behind the widgets, no runs and no model calls."""
 
-    def test_vendor_profiles_are_gated(self):
+    def test_guardrail_profiles_are_gated(self):
         for profile in ("gateway", "guardrail_api"):
             with self.subTest(profile=profile), self.assertRaises(ValueError):
                 op.launch(["tools"], mode="scratch", repeat=1, filt="CTRL-delete", overrides={}, profile=profile)
             errors, _ = op.preflight(["tools"], "scratch", {}, profile=profile)
-            self.assertTrue(any("Phase B" in x for x in errors))
+            self.assertTrue(any("adapter" in x for x in errors))
 
     def test_guardrail_id_follows_the_store_naming(self):
         self.assertEqual(op.guardrail_id(op.Session()), "none")
-        s = op.Session(profile="gateway", vendor="Palo Alto AIRS", product="AI Runtime", version="2026.10")
-        self.assertEqual(op.guardrail_id(s), "pa-airs-airuntime-2026.10-ai_gateway")
-        self.assertTrue(op.guardrail_id(op.Session(profile="guardrail_api")).endswith("-sdk"))
+        s = op.Session(profile="gateway", vendor="Acme Guard", product="AI Runtime", version="2026.10")
+        self.assertEqual(op.guardrail_id(s), "acmeguard-airuntime-2026.10-ai_gateway")
+        self.assertEqual(op.guardrail_id(op.Session(profile="guardrail_api")), "unknown-unknown-unknown-sdk")
 
     def test_gateway_routes_both_channels(self):
         eff = {"GATEWAY_BASE_URL": ("https://gw/v1", ".env"), "GATEWAY_API_KEY": ("k", ".env")}
@@ -226,7 +226,7 @@ class OperatorFlow(unittest.TestCase):
         dot = {"API_KEY": "SECRETKEY1", "GATEWAY_API_KEY": "SECRETKEY2", "MODEL": op.CARRIER}
         with mock.patch.object(op, "dotenv_values", return_value=dot):
             for profile in op.PROFILES:
-                out = op.target_html(op.Session(profile=profile, vendor="Noma"))
+                out = op.target_html(op.Session(profile=profile, vendor="Acme Guard"))
                 self.assertNotIn("SECRETKEY", out)
 
     def test_tc_verdict_any_landed_row_fails(self):

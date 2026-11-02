@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 # Promptfoo config — USE CASE: MCP
-# Workbook TC-IDs: SUP-01 (static tool-DEFINITION poisoning, P1),
+# TC-IDs: SUP-01 (static tool-DEFINITION poisoning, P1),
 #                  PI-04 (runtime tool-OUTPUT injection, P0).
 # Placement: MCP gateway / tool-mediation proxy.
 # Target: AgenticGoat Labs 01, 06.

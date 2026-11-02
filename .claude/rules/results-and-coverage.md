@@ -19,7 +19,7 @@ paths:
   the notebook derive from it. Keep its table layout and the backticked row IDs: `ingest_run.py`
   and `notebooks/operator_lib.py` parse them to link eval rows to TC-IDs, and
   `tests/test_operator_lib.py` fails on format drift.
-- **Coverage grows by workbook TC-IDs.** A new variant of a covered TC-ID adds depth, not coverage.
+- **Coverage grows by TC-IDs** (the catalog in `docs/COVERAGE.md`). A new variant of a covered TC-ID adds depth, not coverage.
 - A result goes in `docs/TEST_CASES.md` / `docs/COVERAGE.md`; a decision worth keeping goes in the
   resolved log of `docs/OPEN_QUESTIONS.md`.
 - The coverage dashboard (claude.ai artifact NzLwm4t7E9vEjEE9JrM1TQ) is on hold: do not refresh it

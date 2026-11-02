@@ -9,7 +9,7 @@ run #1 (the owner chose to start clean).
 
 ```mermaid
 erDiagram
-    catalog ||--o{ test_case : "defines (v4.2: 42)"
+    catalog ||--o{ test_case : "defines"
     coverage_snapshot ||--o{ coverage_status : "COVERAGE.md at a commit"
     test_case ||--o{ row_tc : "evidenced by"
     eval_row ||--o{ row_tc : "maps to"
@@ -28,7 +28,7 @@ flowchart LR
     C --> D["scripts/ingest_run.py"]
     S["results/slot_log.jsonl<br/>provider sink + transcript"] --> D
     D --> E[("results/guardrail_eval.db<br/>SQLite, schema db/schema.sql")]
-    W["COVERAGE.md + workbook"] --> D
+    W["COVERAGE.md"] --> D
     E --> F["scripts/db_report.py"]
     E --> G["coverage dashboard"]
 ```
@@ -46,7 +46,7 @@ flowchart LR
 
 promptfoo writes every eval to `~/.promptfoo/promptfoo.db`, but:
 1. **Internal schema.** It is promptfoo's internal format and can change with any upgrade.
-2. **No POC concepts.** It has no TC-ID, guardrail vendor or placement, oracle strength,
+2. **No evaluation concepts.** It has no TC-ID, guardrail product or placement, oracle strength,
    twin/control flag, or catalog version.
 3. **No run context.** It sits outside the repo and doesn't record the git commit, provider pin
    or carrier per run.
@@ -58,10 +58,10 @@ away.
 
 | Table | Grain | Filled from |
 |---|---|---|
-| `catalog`, `test_case` | one per workbook version / TC-ID | workbook "Use Cases" tab |
+| `catalog`, `test_case` | one per catalog version / TC-ID | legacy: an earlier ingest loaded them from a catalog file; nothing writes them now, and stored rows are kept |
 | `coverage_snapshot`, `coverage_status` | one per change / TC-ID | `COVERAGE.md` at the run's git commit (snapshotted only when it changed) |
 | `eval_row`, `row_tc` | one per row definition / row→TC link | promptfoo test descriptions + vars; TC links from `COVERAGE.md` |
-| `guardrail` | one per vendor configuration | run-time settings (`none`, `demo`, later each vendor + placement + policy hash) |
+| `guardrail` | one per guardrail configuration | run-time settings (`none`, `demo`, later each guardrail + placement + policy hash) |
 | `run` | one per `promptfoo eval` | `run_evals.sh` (`run.json` from `run_meta.py`) + git + promptfoo `results.stats` |
 | `trial` | one per attempt | each promptfoo result: verdict, reason, latency, cost, tokens, slot action; since v2 the provider's `outcome`, `delivered`, `detected`, `intercept_action`, `held_by`, `hop`, `resamples` |
 | `transcript` | one per trial | lab rows: the provider's compact `transcript` (conversation / tool-call summary, and `served_by`: the upstream of each model call, from 2026-11-02); model channel: the conversation + the slot's forwarded body (the reply's `provider` names the upstream) |
@@ -100,7 +100,7 @@ the same run.
 - **A changed row is visible.** Each trial stores a hash of its test vars, so "same row ID,
   different attack" never hides inside a trend.
 - **One run = one carrier + one guardrail configuration** (REQ-MD-01). These are fields on `run`,
-  so a cross-vendor comparison is a query, not a spreadsheet.
+  so a cross-guardrail comparison is a query, not a spreadsheet.
 - **Name flags.** Transcripts matching `NAME_FLAG_REGEX` (set in `.env`, never in the repo) are
   flagged in `transcript.flags`. How to stop the carrier naming the real company is open question
   A8.
@@ -113,13 +113,13 @@ the same run.
 | Piece | What it does |
 |---|---|
 | `scripts/run_evals.sh` | Gives each config run `results/runs/<UTC>-<config>/` with `run.json`, the promptfoo JSON / HTML / log and (model channel) the slot wire log; ingests it; copies it to `results/<config>.*` as "latest" only when the run produced output. Env: `GUARDRAIL_ID` (default `none`), `JOBS` (model-channel concurrency), `NO_INGEST=1` (keep a scratch run out of the store). |
-| `scripts/ingest_run.py <run_dir>` | Creates the DB from `db/schema.sql` if missing; loads the catalog once and a `COVERAGE.md` snapshot when it changed, then the run, rows, row→TC links, trials, transcripts and evidence. Re-ingesting a `run_id` is a no-op. |
+| `scripts/ingest_run.py <run_dir>` | Creates the DB from `db/schema.sql` if missing; loads a `COVERAGE.md` snapshot when it changed, then the run, rows, row→TC links, trials, transcripts and evidence. Re-ingesting a `run_id` is a no-op. |
 | `scripts/db_report.py` | Read-only report: coverage counts and the latest attack / twin result per TC-ID; `--runs`, `--rows`, `--guardrail <id>`. |
 
 ## Sizing
 
 A lab trial is about 25 KB and a model-channel trial about 5 KB with full transcripts, so a full
-×3 suite run is a few MB. Dozens of vendor runs stay in the low hundreds of MB, which is
+×3 suite run is a few MB. Dozens of guardrail runs stay in the low hundreds of MB, which is
 comfortable for SQLite.
 
 ## Reports
@@ -128,7 +128,7 @@ comfortable for SQLite.
 |---|---|
 | `v_row_run` / `v_row_latest`: landed / held / not-run per row per run; latest per guardrail | built |
 | `v_coverage_latest`: coverage per TC-ID from the newest `COVERAGE.md` snapshot | built |
-| Attack success rate per TC-ID and per vendor | to add |
+| Attack success rate per TC-ID and per guardrail | to add |
 | DLP-05 recall / false positives per language | to add |
 | Undefended vs defended delta | to add |
 | Latency p50 / p95 / p99 per guardrail (NF-01) | to add |

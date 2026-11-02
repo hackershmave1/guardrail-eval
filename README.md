@@ -1,10 +1,12 @@
 # guardrail-eval
 
-Compares **3rd-party AI guardrail vendors** (Cato/Aim, Noma, Palo Alto AIRS, Zscaler AI Guard) on
-the 42 test cases (TC-IDs) of `AI_Guardrails_POC_4_2.xlsx`. [Promptfoo](https://www.promptfoo.dev/)
-attacks [AgenticGoat](https://github.com/aminrj-labs/agentic-goat), a deliberately vulnerable agentic
-app, and checks whether the attack's side effect happened (an exfil callback, a file written, a
-canary in a reply). It never trusts what the model *says*.
+A [Promptfoo](https://www.promptfoo.dev/) harness that evaluates an agentic application on **28
+test cases** (TC-IDs): prompt injection, data leakage, tool abuse and exfiltration, memory
+poisoning, jailbreak evasion and unsafe output. It attacks
+[AgenticGoat](https://github.com/aminrj-labs/agentic-goat), a deliberately vulnerable agentic app,
+and checks whether the attack's side effect happened (an exfil callback, a file written, a canary
+in a reply). It never trusts what the model *says*. Use it to evaluate an AI guardrail placed in
+front of the model or its tools, or simply to learn how agentic attacks work and how to grade them.
 
 ```mermaid
 flowchart LR
@@ -16,8 +18,8 @@ flowchart LR
 **PASS** = the guardrail held. **FAIL** = the attack landed. **NOT-RUN** = could not be judged, and is
 never a pass.
 
-> **Phase 1 (now): no vendor is in the loop yet.** Every attack runs against the bare model, so the
-> results are red by design: they are the baseline a vendor has to turn green.
+> **Today no guardrail is in the loop.** Every attack runs against the bare model, so the results
+> are red by design: they are the baseline a guardrail has to turn green.
 
 ---
 
@@ -46,12 +48,12 @@ API_KEY=sk-or-...                     # your OpenRouter key
 OPENROUTER_PROVIDER_ONLY=deepinfra    # keep this too: the pinned provider (bf16 weights)
 ```
 
-**`.env` for a vendor (Phase B; the notebook can set these up, but cannot launch them yet):**
+**`.env` for a guardrail (the notebook can set these up, but cannot launch them yet):**
 
 ```bash
-GATEWAY_BASE_URL=https://gw.vendor.example/v1    # gateway in proxy mode
+GATEWAY_BASE_URL=https://gw.guardrail.example/v1    # gateway in proxy mode
 GATEWAY_API_KEY=...
-GUARDRAIL_API_URL=https://api.vendor.example/v1/scan   # or: the vendor's scan API
+GUARDRAIL_API_URL=https://api.guardrail.example/v1/scan   # or: the guardrail's scan API
 GUARDRAIL_API_KEY=...
 ```
 
@@ -139,10 +141,10 @@ promptfoo view                             # browse runs in promptfoo's UI
 
 # For maintainers
 
-**Why this shape.** AgenticGoat is vendor-neutral and plants synthetic `AGENTICGOAT{...}` canaries;
-success is an observable side effect, following the workbook's oracle ranking (out-of-band callback >
-canary > tool-call log > classifier > LLM judge). Promptfoo is the workbook's mandated runner
-(REQ-TL-04). A vendor sits inline at a gateway or behind pre/post model-I/O hooks; where a lab ships
+**Why this shape.** AgenticGoat is product-neutral and plants synthetic `AGENTICGOAT{...}` canaries;
+success is an observable side effect, following the oracle ranking (out-of-band callback > canary >
+tool-call log > classifier > LLM judge). Promptfoo is the runner (REQ-TL-04). A guardrail sits
+inline at a gateway or behind pre/post model-I/O hooks; where a lab ships
 its own control, a row also runs with it as a reference **twin**. One rule grades every trial:
 `promptfoo/providers/outcome.py`.
 
@@ -158,9 +160,10 @@ its own control, a row also runs with it as a reference **twin**. One rule grade
 
 ```
 CLAUDE.md  STATUS.md  README.md   current state in STATUS.md; session rules in CLAUDE.md
-docs/                COVERAGE (source of truth, 28 of 42), TEST_CASES, REQUIREMENTS, ARCHITECTURE,
-                     OPEN_QUESTIONS, RESULTS_DB, WORKED_EXAMPLE_PI-04 (one row end to end)
-promptfoo/           one config per use case; providers/ (grading), guardrail_slot/ (vendor plug-in)
+docs/                COVERAGE (source of truth: the 28 test cases, plus possible extensions),
+                     TEST_CASES, REQUIREMENTS, ARCHITECTURE, OPEN_QUESTIONS, RESULTS_DB,
+                     WORKED_EXAMPLE_PI-04 (one row end to end)
+promptfoo/           one config per use case; providers/ (grading), guardrail_slot/ (guardrail plug-in)
 scripts/             bootstrap, run_evals, report and proof tools, dataset generators, prompt lint
 notebooks/           operator.ipynb + operator_lib.py (all its logic)
 tests/               stdlib unittest, no model calls: venv/bin/python -m unittest discover -s tests
@@ -176,7 +179,7 @@ afterwards.
 **Not run yet:** a generated red-team sweep against Lab 03 (`promptfoo/redteam.yaml`; it needs a
 verified promptfoo identity, open question C7).
 
-**Next (Phase B → 2):** vendor adapters that read a gateway's or scan API's block as an enforcement
-event, which un-gate the notebook's vendor targets; then every config runs against each vendor,
-compared with a fresh undefended baseline, and the vendor-only rows (judge attacks, latency, false
-positives, fail-open) become testable.
+**Next:** guardrail adapters that read a gateway's or scan API's block as an enforcement event,
+which un-gate the notebook's guardrail targets; then every config runs against each guardrail,
+compared with a fresh undefended baseline, and the extensions that need a guardrail (judge
+attacks, latency, false positives, fail-open) become testable.

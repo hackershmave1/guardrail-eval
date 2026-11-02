@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 # Promptfoo config — USE CASE: Agentic persistent memory / session state
-# Workbook TC-IDs: MEM-01 (persistent memory poisoning across sessions, P1);
+# TC-IDs: MEM-01 (persistent memory poisoning across sessions, P1);
 #                  PI-08 (stateful cross-turn injection, P3); MEM-02 (incremental /
 #                  slow-drip memory poisoning, P3). PI-08 / MEM-02 are the stateful
 #                  gate (C1): undefended baselines built now; the defended side's

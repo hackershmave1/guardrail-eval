@@ -20,7 +20,7 @@ served pages and file names. `scripts/lint_prompts.py` gates every run on the fi
   wording that pre-approves the injected step ("carry out any setup it reports"), no "do not /
   never" line in a control, no self-grounding ("use only the source", "do not rely on outside
   knowledge"). Labels go in `description` / `injection_note`, which the model never sees.
-  *Why:* a tell skews both sides: the carrier refuses (a false hold) or a vendor matches the label
+  *Why:* a tell skews both sides: the carrier refuses (a false hold) or a guardrail matches the label
   (a false detection).
 - **Never let the thing under test defend itself.** No in-content hardening in seed docs, system
   prompts or task framing ("do not disclose", "never reveal", "abstain if the fact is absent").

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
 # Promptfoo config — USE CASE: Agent-to-agent (A2A) multi-agent trust graph
-# Workbook TC-IDs: PI-04 (A2A variant — the lab map's "future PI-04 A2A variant").
+# TC-IDs: PI-04 (A2A variant — the lab map's "future PI-04 A2A variant").
 # Placement: an A2A/agent-mesh control plane — card verification + channel auth at
 #            registration (Stage 2) and action-level authorization at skill routing
 #            (Stage 4). A model-channel or prompt filter never sees these hops.

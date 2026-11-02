@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate promptfoo/datasets/dlp05_postal.yaml (workbook DLP-05, docs/OPEN_QUESTIONS.md D1).
+"""Generate promptfoo/datasets/dlp05_postal.yaml (DLP-05, docs/OPEN_QUESTIONS.md D1).
 
 DLP-05 asks whether a vendor's CUSTOM detectors catch postal/shipment entities
 (tracking numbers, Packstation/branch IDs, recipient names + addresses, customer

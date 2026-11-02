@@ -3,8 +3,8 @@ Guardrail slot: an OpenAI-compatible recording proxy on the MODEL channel.
 
     caller (promptfoo / a lab)  ->  THIS SLOT  ->  upstream model (LLM_BASE_URL)
 
-It is the place a vendor guardrail plugs in (workbook Enforcement Placement tab:
-"AI gateway plugin" / "In-code SDK"), and it is the DLP-01 oracle's evidence:
+It is the place a guardrail plugs in (as an AI gateway plugin or an in-code SDK
+call), and it is the DLP-01 oracle's evidence:
 every request is logged exactly as it was FORWARDED to the model, so "did the
 PII reach the model?" is answered from the wire, never from the model's words.
 

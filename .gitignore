@@ -21,8 +21,8 @@ results/
 .metrics/
 target/
 
-# POC workbook: source of truth, kept out of git (share it out of band)
-AI_Guardrails_POC_*.xlsx
+# Spreadsheets stay out of git
+*.xlsx
 
 # Editor-local settings
 .vscode/
