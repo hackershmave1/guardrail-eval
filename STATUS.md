@@ -6,10 +6,13 @@ refresh). Rules live in `CLAUDE.md` and `.claude/rules/`; shipping steps in the 
 - ✅ Every ub-mode target is done or deferred (PRs #16-#23).
 - ✅ `tools` runs at reasoning effort `low` like every other config (PR #24).
 - ✅ The pinned baseline rerun is done; the docs quote it (PR #25): 28 / 28 TC-IDs land.
-- ✅ **The repo text is product-neutral** (PR #26): a Promptfoo harness that evaluates an agentic
-  app on 28 test cases, for guardrail evaluations or for learning. No named guardrail vendors,
-  no source spreadsheet; TC-IDs and REQ-IDs are the harness's own catalog; the 14 unbuilt
-  TC-IDs are "Possible extensions" in `docs/COVERAGE.md`.
+- ✅ **The repo is product-neutral** (PR #26): a Promptfoo harness that evaluates an agentic app
+  on 28 test cases, for guardrail evaluations or for learning.
+  - No named guardrail vendors, and no source spreadsheet; TC-IDs and REQ-IDs are the
+    harness's own catalog.
+  - The 14 unbuilt TC-IDs are "Possible extensions" in `docs/COVERAGE.md`.
+  - The spreadsheet loader is gone from `ingest_run.py`.
+  - The notebook's vendor is free text, slugged into the `guardrail_id`.
 - **Stopped at:** PR #26 (https://github.com/hackershmave1/guardrail-eval/pull/26) is pushed at
   the branch tip and waits on the owner's go. Nothing is in progress; the tree is clean apart
   from untracked lab state in `agentic-goat`.
@@ -22,7 +25,7 @@ flowchart LR
     D --> E["guardrails in the loop"]
     U["ub-mode targets 1-9 ✅<br/>PRs #16-#23"] -.-> R["tools effort low ✅<br/>PR #24"]
     R -.-> B["pinned baseline rerun ✅<br/>docs refresh ✅ PR #25"]
-    B -.-> N["product-neutral docs ✅<br/>PR #26 open"]
+    B -.-> N["product-neutral repo ✅<br/>PR #26 open"]
     P["provider pinned ✅<br/>deepinfra bf16<br/>served_by recorded ✅"] -.-> B
 ```
 
@@ -30,18 +33,11 @@ flowchart LR
 
 1. **Owner: say "merge" for PR #26** (branch `agnostic-docs`). Claude then runs
    `gh pr merge 26 --merge --match-head-commit <branch tip sha>`, then `git checkout main && git
-   pull --ff-only`, and reruns the tests (334).
-2. **Owner's call: the code-level leftovers of the old framing** (behaviour changes, so not in
-   PR #26):
-   - `scripts/ingest_run.py` looks for the catalog file by its original name (`WORKBOOK`) and
-     prints that name in its "not found" note on every ingest. Option: a neutral default name or
-     a `CATALOG_FILE` env var.
-   - The notebook's B1 target dropdown lists four named vendors (`VENDORS`, `VENDOR_IDS` in
-     `operator_lib.py`; `tests/test_operator_lib.py` uses two of them). Option: a free-text vendor
-     field slugged into the `guardrail_id`.
-   - Identifier names: `workbook()`, the store's `guardrail.vendor` column, `v_vendor_credit`
-     (planned). Renaming the column needs a migration.
-3. **Optional follow-ups:**
+   pull --ff-only`, and reruns the tests (333).
+2. **Optional follow-ups:**
+   - A TC-ID's priority in `db_report.py` comes from the legacy `test_case` table, so a fresh
+     store (any new clone) prints `?`. Fix: carry priority in `coverage_status` from
+     `COVERAGE.md` (a schema migration).
    - Record reasoning effort in `run.json`. The store's `run.reasoning_effort` is NULL for every
      run; effort is a per-row var.
    - A check that flags a call served by an upstream other than the pin.
@@ -49,16 +45,17 @@ flowchart LR
      listener crashes on an empty `exfil_log.json`; `exfil_server.py:13-19` reads it as `[]`).
    - Look at `MC-PI05-CTRL` volunteering the canary, and a decode-only calibration for
      `MC-JB06-01` (Findings).
-4. **Owner: visual check** of the notebook. Restart the kernel, Run All with `RUN_LIVE = False`,
-   click through B1 → B2 → B3 in light and dark, and clear outputs before saving.
-5. **Guardrail adapters:**
+3. **Owner: visual check** of the notebook. Restart the kernel, Run All with `RUN_LIVE = False`,
+   click through B1 → B2 → B3 in light and dark (B1's Vendor is now a text box), and clear outputs
+   before saving.
+4. **Guardrail adapters:**
    - Build the gateway adapter and the scan adapter, and un-gate the B1 targets.
    - Pair every guardrail run with a fresh undefended baseline, and add a credit view.
    - Add an MCP tap, so a guardrail can be credited for PI-04 at H10.
    - Add HMAC-signed events, a hook-order self-test and a fixed-refusal hook policy.
    - Redraw `docs/ARCHITECTURE.md`, and get each guardrail provider's answers to C8–C10.
 
-## PR #26: product-neutral docs
+## PR #26: product-neutral repo
 
 | Commit | What |
 |---|---|
@@ -66,13 +63,22 @@ flowchart LR
 | `d407768` | `COVERAGE.md`: the 28 covered TC-IDs are the suite; the 14 unbuilt ones are "Possible extensions" (what each needs, the build plan). `test_operator_lib` counts 28; the notebook's no-spec hint names the new section |
 | `36cd2aa` | README, CLAUDE.md, `docs/`, `.claude/rules`, `.env.example`: the new framing; "vendor" → "guardrail" (kept: the Lab 03 fixture `vendor-onboarding`, `openrouter:<vendor>/<model>`); workbook / tab / file citations → the harness's own; "Phase 1/2" → with / without a guardrail in the loop; CLAUDE.md gains a product-neutral rule |
 | `a62d3b3` | Config headers, docstrings, schema / test comments, notebook on-screen text; `.gitignore` ignores `*.xlsx`; the TC-ID card reads the renamed "Guardrail bar" field |
+| `dc7a6c3` | `ingest_run.py` drops the spreadsheet loader and its "not found" note. The `catalog` / `test_case` tables and their stored rows stay (append-only; no migration). The notebook reader is `stored_catalog()` |
+| `3a04d52` | B1's Vendor is free text; `guardrail_id` slugs it like product and version; `VENDORS` / `VENDOR_IDS` are gone |
 
-- **Proof:** 334 tests pass in a clean checkout (one test pinned "Phase B" in the gated-profile
-  message; it now checks "adapter"); prompt lint 0 errors; `promptfoo validate` on all 9 configs;
-  banned-text and key scans of the added lines 0 matches; submodule pointer unchanged; `git grep`
-  finds no vendor name, workbook or `.xlsx` citation in markdown.
-- **Not run:** crapper / mutator. The code changes are strings and comments only, except the
-  notebook's field-name lookup, which the card-rendering tests cover.
+- **Proof:**
+  - Tests: 333 pass. New tests first: an ingest prints no catalog note; an unlisted vendor gets
+    its own id slug.
+  - The gated-profile test checks "adapter", not "Phase B".
+  - Real input: run `20261102T104031Z-web` ingested by `main`'s and the new `ingest_run.py` into
+    identical stores (96 rows).
+  - Headless B1: typed vendor → `acmeguard-edge-unknown-ai_gateway`.
+  - crapper: no new function over 10. mutator: `ingest_run.py` 98/98; a `--mutate-all`
+    weak-test run leaves 96 survivors.
+  - Prompt lint 0 errors; `promptfoo validate` on all 9 configs.
+  - Banned-text and key scans of the added lines: 0 matches.
+- **Kept on purpose:** the store's `guardrail.vendor` column (the owner is fine with every
+  guardrail run being recorded there).
 
 ## The pinned baseline rerun (2026-11-02) ✅
 
@@ -94,7 +100,7 @@ and 3 name none. All 28 TC-IDs still land. Per-row figures are in `docs/COVERAGE
 | 3 | `guardrail_slot/proxy.py` `scan_input` / `do_POST` | 148 / 122 → 6 / 6 | #18 |
 | 4 | `shim/sitecustomize.py` `_recorded` | 110 → 6 | #19 |
 | 5 | `lint_prompts.py` `rows` / `check` / `main` | 316 / 270 / 61 → 6 / 7 / 8 | #21 |
-| 6 | `ingest_run.py` `ingest` / `load_catalog` | 70 / 117 → 5 / 3 | #22 |
+| 6 | `ingest_run.py` `ingest` / `load_catalog` (removed in PR #26) | 70 / 117 → 5 / 3 | #22 |
 | 7 | `agentic_goat_provider._delivered` | 13 → 8 | #23 |
 | 8 | `run_meta.main` / `header_names` | 90 / 12 → 3 / 3 | #23 |
 | 9 | `.claude/hooks/guard_edit.py` `main` / `new_text` | 90 / 20 → 6 / 4 | #23 |
@@ -119,7 +125,7 @@ well-tested code, or untested code that can't touch a verdict.
     (88%), `outcome.decide` 17 (93%, kept whole as the rule table), `_model_text` 13 (100%),
     `_tool_called` 12 (88%), `_compact_transcript` 12 (100%), `_build_cmd` 36 (31%; a bad command
     crashes the lab).
-- **Skipped by the owner:** `operator_lib`'s 42.
+- **Skipped by the owner:** `operator_lib`'s 42 (`setup_ui` is 67.7 after PR #26).
 
 ## Where things stand
 
@@ -127,7 +133,7 @@ well-tested code, or untested code that can't touch a verdict.
   `openai/gpt-oss-20b`, from the pinned rerun (`docs/COVERAGE.md`). The store holds run #1
   (2026-10-25/26, 9 runs, 981 trials, unpinned), three unpinned reruns from 2026-10-29 (`mcp`,
   filtered `tools` and `model_channel`), and the pinned full rerun of 2026-11-02 (8 runs, 975
-  trials, `deepinfra`; A1 (a) in `docs/OPEN_QUESTIONS.md`). 334 unit tests; lint shows 0 errors.
+  trials, `deepinfra`; A1 (a) in `docs/OPEN_QUESTIONS.md`). 333 unit tests; lint shows 0 errors.
 - ✅ **PRs #11-#25 merged.** In brief: #11 grading review fixes, notebook Part B, operator-first
   README · #12 ub-mode with honest tools (`tests/__init__.py`, `.absolute()` paths) · #13
   `outcome.py` at mutator 100% · #14 `_oracle` split (`http_callback` with no markers raises) ·
@@ -140,10 +146,15 @@ well-tested code, or untested code that can't touch a verdict.
 
 ## Patterns and decisions
 
-- **Repo text is product-neutral** (owner, 2026-11-02; rule in `CLAUDE.md`): say "a guardrail",
-  never a product name; cite TC-IDs and REQ-IDs without a source file. The suite is the 28
-  covered TC-IDs; anything unbuilt goes under "Possible extensions" in `docs/COVERAGE.md`, outside
-  the parsed "Coverage by TC-ID" section.
+- **The repo is product-neutral** (owner, 2026-11-02; rule in `CLAUDE.md`):
+  - Say "a guardrail", never a product name; cite TC-IDs and REQ-IDs without a source file.
+  - A guardrail's vendor is whatever the operator types in B1. It is slugged into
+    `guardrail_id` (`<vendor>-<product>-<version>-<placement>`), and the store records it in
+    `guardrail.vendor`.
+  - The suite is the 28 covered TC-IDs. Anything unbuilt goes under "Possible extensions" in
+    `docs/COVERAGE.md`, outside the parsed "Coverage by TC-ID" section.
+- **No spreadsheet is read anywhere.** The legacy `catalog` / `test_case` rows in the real store
+  stay (append-only); nothing writes them.
 - **TEST_CASES.md field names are parsed:** the notebook card reads `**Guardrail bar:**`. Rename
   a field there and in `operator_lib.py` together.
 - **ub-mode baselines (2026-11-02):**
@@ -151,8 +162,8 @@ well-tested code, or untested code that can't touch a verdict.
     `guardrail_slot/proxy.py`, `shim/sitecustomize.py`, `_compact_transcript`, `lint_prompts.py`,
     `ingest_run.py`, `_delivered`, `run_meta.py` and the edit hook. `model_channel_provider.py` is
     at 94 / 99 (5 equivalent).
-  - crapper: 81 of 323 functions over CRAP 10 on `main` (110 at the start). 42 of the 81 are
-    `operator_lib`, skipped.
+  - crapper: 61 of 199 functions over CRAP 10 in `scripts` + `notebooks` (42 of those are
+    `operator_lib`, skipped).
   - dryer @ 0.8: one pair at 0.85, `lab04_aggregation_leak.py:73-99` ≈
     `lab04_proprietary_leak.py:92-120`.
   - Fast mutator runs and the proof that workers ran: in `.claude/rules/ub-mode.md`.
@@ -185,8 +196,6 @@ well-tested code, or untested code that can't touch a verdict.
     2 of 3 times (`MCP-SUP01` twin B1 L2).
   - Lab 06's `server-provenance` control is a verbatim-substring check (more than 20 chars, whole
     result); compact JSON re-serialisation evades it ×3.
-- **No catalog file is in this checkout,** so ingest skips the catalog with a note. The parser is
-  covered by the synthetic catalog tests.
 - **mutator reuses its last snapshot.** A site it killed before, in an unchanged function, is
   carried over and not rerun. A "weak test" proof without `--mutate-all` just repeats the last
   result.
