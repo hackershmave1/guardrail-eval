@@ -1,8 +1,9 @@
 # STATUS
 
 As of 2026-11-02 · branch `ingest-run-tests` (off `main` at `561fca2`, where PR #21 merged the lint
-work): ub-mode target 6 is done, so **every ranked ub-mode target (1-6) is done**. **PR #22 is
-open, waiting on the owner's go** (https://github.com/hackershmave1/guardrail-eval/pull/22). Rules
+work): ub-mode target 6 is done, so targets 1-6 are done. **PR #22 is open, waiting on the owner's
+go** (https://github.com/hackershmave1/guardrail-eval/pull/22). Proposed next, waiting on the
+owner's OK: targets 7 (`_delivered`) and 8 (`run_meta.main`), before the baseline reruns. Rules
 live in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship` skill.
 
 ```mermaid
@@ -12,8 +13,8 @@ flowchart LR
     C --> D["Phase B<br/>gateway + scan adapters<br/>un-gate vendor targets"]
     D --> E["Phase 2<br/>vendors in the loop"]
     U["ub-mode targets 1-5 ✅<br/>PRs #12-#21"] -.-> I["target 6: ingest ✅<br/>PR #22"]
-    I -.-> Q{"owner: defer the<br/>lower-value rest?"}
-    Q -.-> B["pinned<br/>baseline reruns"]
+    I -.-> T["proposed: targets 7-8<br/>_delivered, run_meta.main<br/>(owner's OK)"]
+    T -.-> B["pinned<br/>baseline reruns"]
     P["provider pinned ✅<br/>deepinfra bf16<br/>served_by recorded ✅"] -.-> B
 ```
 
@@ -50,9 +51,13 @@ flowchart LR
 1. **Owner:** say "merge" for PR #22. Claude then runs `gh pr merge 22 --merge
    --match-head-commit <sha>` (the sha from `gh pr view 22 --json headRefOid`), then
    `git checkout main && git pull --ff-only`, and reruns the tests (292).
-2. **Owner decides:** defer the lower-value functions still over CRAP 10 (list below), or take one
-   more first. Claude's recommendation: defer them all, except optionally `run_meta.main` (90). It
-   writes `run.json`, the run's evidence of carrier, pin and headers, and is a short job.
+2. **Owner decides on targets 7-8** (proposed 2026-11-02; see "Still over CRAP 10" below):
+   - 7: `agentic_goat_provider._delivered` (decides delivery; 69% covered);
+   - 8: `run_meta.main` (writes `run.json`, the reruns' REQ-MD-01 evidence; 0% covered);
+   - optionally 9: the edit hook `.claude/hooks/guard_edit.py` (the banned-text gate; 0% covered);
+   - and defers group A plus `pair_filter.main` and `_exfil_pids`.
+
+   Each target is a short job in the usual pattern: pin → mutator → split → gates → PR.
 3. **Then the pinned baseline reruns** (the owner's order: once every ub-mode target is completed or
    deferred):
    - `REPEAT=3 scripts/run_evals.sh` (every config) into the real store. Each run is pinned to
@@ -75,21 +80,35 @@ flowchart LR
 | 5 | `lint_prompts.py` `rows` / `check` / `main` | 316 / 270 / 61 → 6 / 7 / 8 | #21 |
 | 6 | `ingest_run.py` `ingest` / `load_catalog` | 70 / 117 → 5 / 3 | #22 (open) |
 
-**Still over CRAP 10, lower value (owner to defer or pick):**
-- **Reporting:** `db_report.main` 462 and `summarize.tally` 42.
-- **Run setup:** `run_meta.main` 90, `run_meta.header_names` 12 and `pair_filter.main` 21.
-- **Edit hook:** `.claude/hooks/guard_edit.py` `main` 90 and `new_text` 20.
-- **Lab provider:**
-  - `call_api` 41 (86% covered; CC 37, a later split) and `_build_cmd` 36.
-  - `_exfil_pids` 24, `_collect_evidence` 20.
-  - `_model_text` 13, `_delivered` 13, `_tool_called` 12 and `_compact_transcript` 12 (fully
-    covered; CRAP = CC).
-- **Other:**
-  - `outcome.decide` 17, left whole on purpose: it reads as the rule table.
-  - `web_fixtures/server.Handler.do_GET` 17.
-  - 12 drivers' `main` (30-156, 0% covered).
-  - The generators `gen_dlp05` / `gen_dlp01` (they write protected generated datasets: leave).
-- `operator_lib`'s 42 are skipped by the owner's call.
+**Still over CRAP 10.** Ranked by the same test as targets 1-6: could a bug silently misgrade a
+trial or corrupt the evidence, while little tests it? A high score alone is not risk: it can be
+complexity in well-tested code, or untested code that can't touch a verdict.
+
+- **B, fit that test: proposed as targets 7-9 (owner's OK pending):**
+  - `agentic_goat_provider._delivered` 13 (69% covered). It decides whether the attack reached the
+    model. A bug could count an undelivered attack as delivered, and the row would read "held": a
+    false PASS. **Target 7.**
+  - `run_meta.main` 90 and `header_names` 12 (0%). They write `run.json` (carrier, `provider_pin`,
+    git commit), the reruns' REQ-MD-01 evidence. A bug would record the wrong pin silently.
+    **Target 8.**
+  - `.claude/hooks/guard_edit.py` `main` 90 and `new_text` 20 (0%). The hook that blocks the real
+    company name and submodule edits; failing open would be silent. A compliance gate, not grading.
+    **Optional target 9.**
+  - `pair_filter.main` 21 (14%). It pairs a twin with its baseline in a filtered run; the
+    full-suite reruns use no filter. Defer.
+  - `_exfil_pids` 24 (8%). PR #16's checks already turn a failure into NOT-RUN. Defer.
+- **A, can't silently change a verdict or the evidence: defer:**
+  - Reporting only: `db_report.main` 462, `summarize.tally` 42. The store stays right.
+  - Generators: `gen_dlp05` / `gen_dlp01` / `gen_web_pages` / `gen_jb07` (12-462). They write
+    protected datasets once, `lint_prompts` checks the output, and a refactor risks changing a
+    dataset.
+  - Lab drivers' `main` (12-156, 0%). A break crashes (NOT-RUN) or fails the delivery check
+    (NOT_DELIVERED), both loud. `web_fixtures/server.Handler.do_GET` 17 is the same.
+  - Already well tested; the score is complexity: `call_api` 41 (86%), `_collect_evidence` 20
+    (88%), `outcome.decide` 17 (93%, kept whole as the rule table), `_model_text` 13 (100%),
+    `_tool_called` 12 (88%), `_compact_transcript` 12 (100%), `_build_cmd` 36 (31%; a bad command
+    crashes the lab).
+- **C, skipped by the owner:** `operator_lib`'s 42.
 
 ## Where things stand
 
@@ -225,5 +244,5 @@ flowchart LR
 - Rows needing owner input: harm carrier (A1b → JB-01, JB-02, TOX-01); other targets (A6 → OUT-03,
   C2 → PI-06, A5 → MM-01/02).
 - Coverage dashboard (artifact NzLwm4t7…): not to be refreshed (owner, 2026-10-26).
-- Baseline reruns: until the owner defers or picks the lower-value functions above (owner's order,
-  2026-11-01).
+- Baseline reruns: until targets 7-8 (and 9 if picked) are done and the rest is deferred (owner's
+  order, 2026-11-01).
