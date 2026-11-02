@@ -88,7 +88,7 @@ CREATE TABLE run (
     promptfoo_eval_id  TEXT,                     -- link into ~/.promptfoo/promptfoo.db
     carrier_model      TEXT NOT NULL,            -- 'openai/gpt-oss-20b'
     provider_pin       TEXT,                     -- OPENROUTER_PROVIDER_ONLY
-    reasoning_effort   TEXT,
+    reasoning_effort   TEXT,                     -- efforts the rows asked for ("low"); NULL = none set
     guardrail_id       TEXT NOT NULL REFERENCES guardrail(guardrail_id),
     repeat             INTEGER NOT NULL,
     filter             TEXT,                     -- FILTER regex; NULL = full config

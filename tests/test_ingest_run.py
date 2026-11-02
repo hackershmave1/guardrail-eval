@@ -270,7 +270,7 @@ class Connect(Temp):
 META = {"run_id": "20261102T000000Z-mcp", "config": "mcp", "started_at": "2026-11-02T00:00:00Z",
         "finished_at": "2026-11-02T00:05:00Z", "git_commit": "abc", "git_dirty": False,
         "promptfoo_version": "0.1", "carrier_model": "openai/gpt-oss-20b", "provider_pin": "deepinfra",
-        "reasoning_effort": "low", "repeat": 3, "filter": "MCP-PI04", "concurrency": 1}
+        "repeat": 3, "filter": "MCP-PI04", "concurrency": 1}
 COV = [("PI-04", "Covered", "Prompt injection", "mcp", "", ["MCP-PI04"]),
        ("CAL-01", "Covered", "Calibration", "", "", ["CAL-01"])]
 
@@ -289,12 +289,13 @@ class Ingest(Temp):
         self.patch(ingest_run, coverage_rows=lambda: COV,
                    git=lambda *a: "", name_flag=lambda text: "name-match" if "Globex" in text else None)
 
-    def write(self, meta=None, results=None, slot_lines=None):
+    def write(self, meta=None, results=None, slot_lines=None, providers=None):
         (self.run_dir / "run.json").write_text(json.dumps({**META, **(meta or {})}))
         config = (meta or {}).get("config", META["config"])
         if results is not None:
             (self.run_dir / f"{config}.json").write_text(json.dumps(
-                {"evalId": "eval-1", "results": {"stats": {"successes": 1}, "results": results}}))
+                {"evalId": "eval-1", "results": {"stats": {"successes": 1}, "results": results},
+                 "config": {"providers": providers or [{"id": "file://p.py"}]}}))
         if slot_lines is not None:
             (self.run_dir / "slot_log.jsonl").write_text("\n".join(slot_lines) + "\n")
 
@@ -308,6 +309,23 @@ class Ingest(Temp):
             return con.execute(sql).fetchall()
         finally:
             con.close()
+
+    def test_the_run_records_the_reasoning_efforts_it_asked_for(self):
+        cases = [  # (row vars' efforts, provider config's effort) -> run.reasoning_effort
+            (["low", "low"], None, "low"),
+            ([None], "low", "low"),
+            (["high", None], "low", "high, low"),
+            ([None, None], None, None),
+        ]
+        for i, (row_efforts, provider_effort, want) in enumerate(cases):
+            with self.subTest(case=i):
+                self.write(meta={"run_id": f"effort-{i}"},
+                           results=[result(f"MC-X{n} row", {"outcome": "CLEAN"},
+                                           {"reasoning_effort": e} if e else {}) for n, e in enumerate(row_efforts)],
+                           providers=[{"id": "file://p.py", "config": {"reasoning_effort": provider_effort}}
+                                      if provider_effort else {"id": "file://p.py"}])
+                self.ingest()
+                self.assertEqual(self.rows(f"SELECT reasoning_effort FROM run WHERE run_id = 'effort-{i}'"), [(want,)])
 
     def test_an_ingest_loads_no_catalog_and_says_nothing_about_one(self):
         self.write(results=[])

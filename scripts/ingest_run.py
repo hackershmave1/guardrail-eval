@@ -237,6 +237,18 @@ def _register_guardrail(con: sqlite3.Connection, meta: dict) -> str:
     return gid
 
 
+def run_effort(pf: dict | None) -> str | None:
+    """The reasoning efforts a run asked for: every row's `reasoning_effort` var and every
+    provider config's, distinct and sorted ("low", "high, low"); None when nothing set one
+    (a2a makes no model call)."""
+    pf = pf or {}
+    rows = (((r.get("testCase") or {}).get("vars") or {}).get("reasoning_effort")
+            for r in pf.get("results", {}).get("results", []))
+    providers = ((p.get("config") or {}).get("reasoning_effort")
+                 for p in (pf.get("config") or {}).get("providers") or [] if isinstance(p, dict))
+    return ", ".join(sorted({str(e) for e in (*rows, *providers) if e})) or None
+
+
 def _insert_run(con: sqlite3.Connection, meta: dict, run_dir: Path, pf: dict | None) -> str:
     """The run row; returns its status (aborted when promptfoo wrote no output)."""
     gid = _register_guardrail(con, meta)
@@ -248,7 +260,7 @@ def _insert_run(con: sqlite3.Connection, meta: dict, run_dir: Path, pf: dict | N
                 (meta["run_id"], meta["config"], meta["started_at"], meta.get("finished_at"), status,
                  meta["git_commit"], int(meta["git_dirty"]), meta["promptfoo_version"],
                  (pf or {}).get("evalId"), meta["carrier_model"], meta.get("provider_pin") or None,
-                 meta.get("reasoning_effort"), gid, int(meta["repeat"]), meta.get("filter") or None,
+                 run_effort(pf), gid, int(meta["repeat"]), meta.get("filter") or None,
                  int(meta["concurrency"]), rel(run_dir),
                  json.dumps((pf or {}).get("results", {}).get("stats")) if pf else None))
     return status
