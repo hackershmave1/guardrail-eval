@@ -1,7 +1,7 @@
 # STATUS
 
 As of 2026-11-02 · branch `ub-targets-7-9` (off `main` at `a611fe5`, where PR #22 merged the ingest
-work): ub-mode targets 7-9 are done, so **every ub-mode target is done or deferred**. The PR is
+work): ub-mode targets 7-9 are done, so **every ub-mode target is done or deferred**. PR #23 is
 open, waiting on the owner's go. After it merges, the pinned baseline reruns are next (the owner's
 order, 2026-11-01). Rules live in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship`
 skill.
@@ -17,7 +17,7 @@ flowchart LR
     P["provider pinned ✅<br/>deepinfra bf16<br/>served_by recorded ✅"] -.-> B
 ```
 
-## Waiting on the owner: the PR for `ub-targets-7-9`
+## Waiting on the owner: PR #23, `ub-targets-7-9`
 
 Each target follows the job pattern: pins → mutator → split → gates → proof. Six commits, two per
 target.
@@ -52,7 +52,7 @@ target.
 
 ## Next steps, in order
 
-1. **Owner:** say "merge" for the `ub-targets-7-9` PR. Claude then runs `gh pr merge <n> --merge
+1. **Owner:** say "merge" for PR #23. Claude then runs `gh pr merge 23 --merge
    --match-head-commit <sha>`, then `git checkout main && git pull --ff-only`, and reruns the tests
    (334).
 2. **Owner: decide on reasoning effort** for `tools`, `a2a` and `web_server` before the reruns.
@@ -78,9 +78,9 @@ target.
 | 4 | `shim/sitecustomize.py` `_recorded` | 110 → 6 | #19 |
 | 5 | `lint_prompts.py` `rows` / `check` / `main` | 316 / 270 / 61 → 6 / 7 / 8 | #21 |
 | 6 | `ingest_run.py` `ingest` / `load_catalog` | 70 / 117 → 5 / 3 | #22 |
-| 7 | `agentic_goat_provider._delivered` | 13 → 8 | open |
-| 8 | `run_meta.main` / `header_names` | 90 / 12 → 3 / 3 | open |
-| 9 | `.claude/hooks/guard_edit.py` `main` / `new_text` | 90 / 20 → 6 / 4 | open |
+| 7 | `agentic_goat_provider._delivered` | 13 → 8 | #23 (open) |
+| 8 | `run_meta.main` / `header_names` | 90 / 12 → 3 / 3 | #23 (open) |
+| 9 | `.claude/hooks/guard_edit.py` `main` / `new_text` | 90 / 20 → 6 / 4 | #23 (open) |
 
 **Still over CRAP 10: deferred** (2026-11-02; the owner took targets 7-9 and left the rest).
 Ranked by the same test as targets 1-9: could a bug silently misgrade a trial or corrupt the
@@ -241,5 +241,5 @@ well-tested code, or untested code that can't touch a verdict.
 - Rows needing owner input: harm carrier (A1b → JB-01, JB-02, TOX-01); other targets (A6 → OUT-03,
   C2 → PI-06, A5 → MM-01/02).
 - Coverage dashboard (artifact NzLwm4t7…): not to be refreshed (owner, 2026-10-26).
-- Baseline reruns: until the `ub-targets-7-9` PR merges (every other ub-mode target is deferred;
+- Baseline reruns: until PR #23 merges (every other ub-mode target is deferred;
   owner's order, 2026-11-01).
