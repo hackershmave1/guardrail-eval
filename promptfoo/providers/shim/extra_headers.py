@@ -5,7 +5,7 @@ slot, run_meta.py and the operator notebook.
 EXTRA_HEADERS is one-line JSON mapping an endpoint base URL to the headers it needs:
 
     EXTRA_HEADERS={"http://localhost:4000/v1": {"x-model": "gpt-oss-20b"},
-                   "https://gw.vendor.example/v1": {"x-project-id": "${VENDOR_PROJECT_ID}"}}
+                   "https://gw.guardrail.example/v1": {"x-project-id": "${GUARDRAIL_PROJECT_ID}"}}
 
 A request gets the headers of every base URL that is a prefix of its target (on a
 path boundary); a longer base URL wins a clash. `${VAR}` is filled from the
