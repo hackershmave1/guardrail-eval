@@ -27,6 +27,7 @@
         model_tool_calls: [.response.output.transcript.conversations[]?.messages[]?.tool_calls[]?
           | "\(.function.name) \(.function.arguments[0:300])"],
         model_replies: [.response.output.transcript.conversations[]?.reply.content // empty | .[0:600]],
+        served_by: ((.response.output.transcript.served_by // []) | unique),
         events: .response.output.events,
         oracle: .gradingResult.reason,
         sink: .response.output.sink,

@@ -64,7 +64,7 @@ away.
 | `guardrail` | one per vendor configuration | run-time settings (`none`, `demo`, later each vendor + placement + policy hash) |
 | `run` | one per `promptfoo eval` | `run_evals.sh` (`run.json` from `run_meta.py`) + git + promptfoo `results.stats` |
 | `trial` | one per attempt | each promptfoo result: verdict, reason, latency, cost, tokens, slot action; since v2 the provider's `outcome`, `delivered`, `detected`, `intercept_action`, `held_by`, `hop`, `resamples` |
-| `transcript` | one per trial | lab rows: the provider's compact `transcript` (conversation / tool-call summary); model channel: the conversation + the slot's forwarded body |
+| `transcript` | one per trial | lab rows: the provider's compact `transcript` (conversation / tool-call summary, and `served_by`: the upstream of each model call, from 2026-11-02); model channel: the conversation + the slot's forwarded body (the reply's `provider` names the upstream) |
 | `evidence` | one per proof item | the provider's `sink` (exfil listener log, email log, state files), the slot wire log, the delivery trace, each enforcement event (`block_event`), and each new lab result's complete `evidence_attempts` envelope as `delivery_trace` |
 
 For new lab runs, each `evidence_attempts` envelope retains the provider attempt number and
