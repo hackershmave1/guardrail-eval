@@ -2,7 +2,7 @@
 -- Append-only: rows are inserted, never updated or deleted, except run.status/finished_at
 -- when a run completes. Bump user_version with every schema change (migrations in db/).
 PRAGMA foreign_keys = ON;
-PRAGMA user_version = 2;
+PRAGMA user_version = 3;
 
 -- ── Catalog (legacy: nothing writes it now; stored rows are kept) ───────────
 CREATE TABLE catalog (
@@ -38,6 +38,7 @@ CREATE TABLE coverage_status (
     section       TEXT NOT NULL,                 -- COVERAGE.md family heading (e.g. 'Prompt injection')
     target        TEXT,
     notes         TEXT,
+    priority      TEXT,                          -- 'P0'..'P3' from COVERAGE.md (migration 003)
     PRIMARY KEY (snapshot_id, tc_id)
 );
 

@@ -107,8 +107,8 @@ def connect(db: Path) -> sqlite3.Connection:
 
 
 # ── coverage ─────────────────────────────────────────────────────────────────
-def coverage_rows() -> list[tuple[str, str, str, str, str, list[str]]]:
-    """(tc_id, status, section, target, notes, row-id tokens) per TC-ID in COVERAGE.md.
+def coverage_rows() -> list[tuple[str, str, str, str, str, str, list[str]]]:
+    """(tc_id, status, priority, section, target, notes, row-id tokens) per TC-ID in COVERAGE.md.
 
     Reads only the tables under "## Coverage by TC-ID"; `section` is the `### <family>`
     heading above each table. Columns: TC-ID | Scenario | P | Status | Harness | Rows.
@@ -124,13 +124,13 @@ def coverage_rows() -> list[tuple[str, str, str, str, str, list[str]]]:
             continue
         if not section or not re.match(r"^\| [A-Z]+-\d", line):
             continue
-        tc, status, target, notes, tokens = _coverage_line(line)
+        tc, status, priority, target, notes, tokens = _coverage_line(line)
         if tc in out:  # a TC-ID split over bands: keep the weaker status, merge the rest
             prev = out[tc]
             status = min(status, prev[1], key=_STATUS_RANK.index)
-            notes = prev[4] + " | " + notes
-            tokens = prev[5] + tokens
-        out[tc] = (tc, status, section, target, notes, tokens)
+            notes = prev[5] + " | " + notes
+            tokens = prev[6] + tokens
+        out[tc] = (tc, status, priority, section, target, notes, tokens)
     return list(out.values())
 
 
@@ -138,26 +138,28 @@ _STATUS_OF = {"🟢": "Covered", "🟡": "Partial", "🔴": "Not covered"}
 _STATUS_RANK = ["Not covered", "Partial", "Covered"]
 
 
-def _coverage_line(line: str) -> tuple[str, str, str, str, list[str]]:
-    """(tc_id, status, target, notes, row-id tokens) from one TC-ID table line."""
+def _coverage_line(line: str) -> tuple[str, str, str, str, str, list[str]]:
+    """(tc_id, status, priority, target, notes, row-id tokens) from one TC-ID table line."""
     cols = [c.strip() for c in line.strip().strip("|").split("|")]
     status = next((v for k, v in _STATUS_OF.items() if k in cols[3]), "Not covered")
     target, notes = (cols[4], cols[5]) if len(cols) > 5 else ("", cols[4] if len(cols) > 4 else "")
     tokens = re.findall(r"`([A-Z][A-Z0-9]+(?:-[A-Za-z0-9]+)+)`", " ".join(cols[4:]))
-    return cols[0], status, target, notes, tokens
+    return cols[0], status, cols[2], target, notes, tokens
 
 
 def snapshot_coverage(con: sqlite3.Connection, cov: list) -> None:
-    current = sorted((tc, st) for tc, st, *_ in cov)
+    current = sorted((tc, st, prio) for tc, st, prio, *_ in cov)
     last = con.execute("SELECT MAX(snapshot_id) FROM coverage_snapshot").fetchone()[0]
     if last is not None:
-        prev = sorted(con.execute("SELECT tc_id, status FROM coverage_status WHERE snapshot_id = ?", (last,)))
+        prev = sorted(con.execute("SELECT tc_id, status, priority FROM coverage_status WHERE snapshot_id = ?",
+                                  (last,)))
         if prev == current:
             return
     cur = con.execute("INSERT INTO coverage_snapshot (taken_at, git_commit, git_dirty) VALUES (?, ?, ?)",
                       (now(), git("rev-parse", "HEAD") or None, int(bool(git("status", "--porcelain", "docs/COVERAGE.md")))))
-    con.executemany("INSERT INTO coverage_status VALUES (?, ?, ?, ?, ?, ?)",
-                    [(cur.lastrowid, tc, st, sec, tgt, notes) for tc, st, sec, tgt, notes, _ in cov])
+    con.executemany("INSERT INTO coverage_status (snapshot_id, tc_id, status, priority, section, target, notes)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    [(cur.lastrowid, tc, st, prio, sec, tgt, notes) for tc, st, prio, sec, tgt, notes, _ in cov])
 
 
 # ── rows, trials, transcripts, evidence ───────────────────────────────────────

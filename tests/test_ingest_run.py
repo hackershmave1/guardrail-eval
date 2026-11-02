@@ -200,13 +200,13 @@ class Coverage(Temp):
 
     def test_rows_status_section_and_row_tokens(self):
         self.assertEqual(ingest_run.coverage_rows(), [
-            ("PI-01", "Covered", "Prompt injection", "model channel", "`MC-PI01` 3/3, `MC-PI01-02`",
+            ("PI-01", "Covered", "P0", "Prompt injection", "model channel", "`MC-PI01` 3/3, `MC-PI01-02`",
              ["MC-PI01", "MC-PI01-02"]),
-            ("PI-04", "Partial", "Prompt injection", "mcp", "`MCP-PI04` 3/3 | `MCP-PI04b`",
+            ("PI-04", "Partial", "P0", "Prompt injection", "mcp", "`MCP-PI04` 3/3 | `MCP-PI04b`",
              ["MCP-PI04", "MCP-PI04b"]),
-            ("PI-05", "Not covered", "Prompt injection", "", "only notes", []),
-            ("PI-06", "Not covered", "Prompt injection", "", "", []),
-            ("DLP-01", "Not covered", "Data loss", "slot", "`MC-DLP01`", ["MC-DLP01"])])
+            ("PI-05", "Not covered", "P2", "Prompt injection", "", "only notes", []),
+            ("PI-06", "Not covered", "P3", "Prompt injection", "", "", []),
+            ("DLP-01", "Not covered", "P0", "Data loss", "slot", "`MC-DLP01`", ["MC-DLP01"])])
 
     def test_a_snapshot_is_taken_only_when_a_status_changed(self):
         con = sqlite3.connect(":memory:")
@@ -220,9 +220,9 @@ class Coverage(Temp):
             changed = [(tc, "Covered" if tc == "PI-05" else st, *rest) for tc, st, *rest in cov]
             ingest_run.snapshot_coverage(con, changed)
         self.assertEqual(con.execute("SELECT COUNT(*) FROM coverage_snapshot").fetchone()[0], 2)
-        self.assertEqual(con.execute("SELECT tc_id, status, section, target, notes FROM coverage_status"
+        self.assertEqual(con.execute("SELECT tc_id, status, priority, section, target, notes FROM coverage_status"
                                      " WHERE snapshot_id = 1 AND tc_id = 'PI-05'").fetchone(),
-                         ("PI-05", "Not covered", "Prompt injection", "", "only notes"))
+                         ("PI-05", "Not covered", "P2", "Prompt injection", "", "only notes"))
         with mock.patch.object(ingest_run, "git", return_value=""):
             ingest_run.snapshot_coverage(con, cov)
         self.assertEqual(con.execute("SELECT git_commit, git_dirty FROM coverage_snapshot WHERE snapshot_id = 3")
@@ -276,8 +276,8 @@ META = {"run_id": "20261102T000000Z-mcp", "config": "mcp", "started_at": "2026-1
         "finished_at": "2026-11-02T00:05:00Z", "git_commit": "abc", "git_dirty": False,
         "promptfoo_version": "0.1", "carrier_model": "openai/gpt-oss-20b", "provider_pin": "deepinfra",
         "repeat": 3, "filter": "MCP-PI04", "concurrency": 1}
-COV = [("PI-04", "Covered", "Prompt injection", "mcp", "", ["MCP-PI04"]),
-       ("CAL-01", "Covered", "Calibration", "", "", ["CAL-01"])]
+COV = [("PI-04", "Covered", "P0", "Prompt injection", "mcp", "", ["MCP-PI04"]),
+       ("CAL-01", "Covered", "", "Calibration", "", "", ["CAL-01"])]
 
 
 def result(desc, output, vars=None, grading=None, **extra):

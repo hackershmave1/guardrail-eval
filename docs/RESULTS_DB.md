@@ -59,7 +59,7 @@ away.
 | Table | Grain | Filled from |
 |---|---|---|
 | `catalog`, `test_case` | one per catalog version / TC-ID | legacy: an earlier ingest loaded them from a catalog file; nothing writes them now, and stored rows are kept |
-| `coverage_snapshot`, `coverage_status` | one per change / TC-ID | `COVERAGE.md` at the run's git commit (snapshotted only when it changed) |
+| `coverage_snapshot`, `coverage_status` | one per change / TC-ID | `COVERAGE.md` at the run's git commit: status, priority, family, harness, rows (snapshotted only when a status or priority changed) |
 | `eval_row`, `row_tc` | one per row definition / row→TC link | promptfoo test descriptions + vars; TC links from `COVERAGE.md` |
 | `guardrail` | one per guardrail configuration | run-time settings (`none`, `demo`, later each guardrail + placement + policy hash) |
 | `run` | one per `promptfoo eval` | `run_evals.sh` (`run.json` from `run_meta.py`) + git + promptfoo `results.stats` |
@@ -112,7 +112,9 @@ the same run.
   for ("low"); NULL when nothing set one.
 - **Schema changes** bump `PRAGMA user_version` and ship a migration (`db/NNN_*.sql`). The
   ingest applies pending migrations in order and refuses a DB it has no path for. v2
-  (`db/002_outcome.sql`): outcome columns on `trial`, `block_event` evidence, the rate views.
+  (`db/002_outcome.sql`): outcome columns on `trial`, `block_event` evidence, the rate views. v3
+  (`db/003_coverage_priority.sql`): `coverage_status.priority`, so the report shows each TC-ID's
+  priority from `COVERAGE.md` on a fresh store.
 
 ## Operation
 
