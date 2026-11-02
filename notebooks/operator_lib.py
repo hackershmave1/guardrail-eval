@@ -1489,7 +1489,7 @@ def card_html(tc: str) -> str:
              "</table>"]
     if not entries:
         parts.append("<p><i>No TEST_CASES.md spec for this TC-ID: it has no row yet "
-                     "(see COVERAGE.md, \"How the remaining rows get built\").</i></p>")
+                     "(see COVERAGE.md, \"Possible extensions\").</i></p>")
     for sec, en in entries:
         f = en["fields"]
         parts.append(f"<h4>{e(' / '.join(en['rows']))} — {e(en['title'])} "

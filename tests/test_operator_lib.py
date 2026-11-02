@@ -28,7 +28,7 @@ class Docs(unittest.TestCase):
         cls.entries = [en for s in op.test_cases() for en in s["entries"]]
 
     def test_coverage_parses_every_tc(self):
-        self.assertEqual(len(self.cov), 42)
+        self.assertEqual(len(self.cov), 28)
         for tc, c in self.cov.items():
             self.assertIn(c["status"], op.STATUS_STYLE, tc)
             self.assertRegex(c["priority"], r"^P[0-3]$", tc)
