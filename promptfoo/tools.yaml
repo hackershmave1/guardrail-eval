@@ -30,6 +30,13 @@ prompts:
   - "{{attack}}"
 
 defaultTest:
+  vars:
+    # The house carrier setting (mcp, rag, memory, web, web_server, model_channel run low
+    # too), on every row so a baseline and the control share it, and Lab 01 runs at one
+    # effort here and in mcp (REQ-MD-01). At the default effort the carrier can end a turn
+    # with no content and no call (run #1: TOOLS-EXF02 NOT-RUN once, 5 resamples in 6
+    # trials); A1a in docs/OPEN_QUESTIONS.md.
+    reasoning_effort: low
   assert:
     - type: python
       value: file://providers/assert_canary.py
