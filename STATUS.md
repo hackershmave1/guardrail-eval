@@ -169,12 +169,12 @@ datasets: leave); `agentic_goat_provider.call_api` (40.6, 86% covered, CC 37 →
    click through B1 → B2 → B3 in light and dark, and clear outputs before saving.
 3. **Owner: remove** `agentic-goat/labs/05-agentic-memory-attacks/sandbox/audit_log.txt` (run #1
    leftover; Claude's `rm` was denied). The next memory run also deletes it.
-4. **After ub-mode targets 5-6 (owner's order):** rerun the `rag`, `memory` and `a2a` twins as
+4. **After ub-mode target 6 (owner's order):** rerun the `rag`, `memory` and `a2a` twins as
    scratch runs (now pinned), to confirm the forged-block-line rule live and exercise the
    non-canary oracle kinds end to end.
 5. **Decide:** align reasoning effort for `tools`, `a2a` and `web_server` (changing it means
    rerunning their baselines). Pinned reruns of the pre-pin baselines also wait for ub-mode
-   targets 5-6 (REQ-MD-01: each vendor run pairs with a fresh undefended baseline anyway).
+   target 6 (REQ-MD-01: each vendor run pairs with a fresh undefended baseline anyway).
 6. **Phase B:**
    - Build the gateway adapter and the scan adapter, and un-gate the B1 targets.
    - Pair every vendor run with a fresh undefended baseline, and add a `v_vendor_credit` view.
