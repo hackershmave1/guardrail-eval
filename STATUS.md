@@ -1,9 +1,9 @@
 # STATUS
 
-As of 2026-11-02 · branch `record-served-provider` (off `main` at `dd94a6d`): the served upstream
-is now recorded per lab call. **PR #20 is open, MERGEABLE / CLEAN, waiting on the owner's go**
-(https://github.com/hackershmave1/guardrail-eval/pull/20). Rules live in `CLAUDE.md`
-and `.claude/rules/`; shipping steps in the `ship` skill.
+As of 2026-11-02 · branch `lint-prompts-tests` (off `main` at `b35317f`, where PR #20 merged the
+served-upstream record): ub-mode target 5 is done. **PR #21 is open, waiting on the owner's go**
+(https://github.com/hackershmave1/guardrail-eval/pull/21). Rules live in `CLAUDE.md` and
+`.claude/rules/`; shipping steps in the `ship` skill.
 
 ```mermaid
 flowchart LR
@@ -11,44 +11,52 @@ flowchart LR
     W --> C["Owner: visual check<br/>+ small decisions"]
     C --> D["Phase B<br/>gateway + scan adapters<br/>un-gate vendor targets"]
     D --> E["Phase 2<br/>vendors in the loop"]
-    U["ub-mode #12-#19 ✅"] -.-> R["served upstream<br/>recorded ✅ PR #20"]
-    R -.-> N["targets 5-6<br/>lint, ingest"]
+    U["ub-mode #12-#20 ✅"] -.-> L["target 5: lint ✅<br/>PR #21"]
+    L -.-> N["target 6<br/>ingest_run"]
     N -.-> B["then: pinned<br/>baseline reruns"]
     P["provider pinned ✅<br/>deepinfra bf16"] -.-> B
 ```
 
-## Waiting on the owner: PR #20, `record-served-provider` (owner approved the change, 2026-11-01)
+## Waiting on the owner: PR #21, `lint-prompts-tests` (ub-mode target 5, `scripts/lint_prompts.py`)
 
-- ✅ **`8155a87`, test-first:**
-  - **Shim:** each transcript line gains `provider`, from OpenRouter's `provider` field on the reply
-    (`None` when an endpoint names none).
-  - **Provider:** `_compact_transcript` keeps every call's upstream, in order, as `served_by`. It
-    flows unchanged into `mcp.json` and the store's `transcript.conversation`.
-  - **`scripts/proof.jq`:** shows each landed row's upstreams once.
-  - **`tests/test_transcript.py`:** also pins the existing folding rules (the latest conversation
-    grows, a resampled turn folds, the cap skips non-text content).
-  - **Gates:** 229 tests OK; mutator `_compact_transcript` 11 / 11 (weak test 3 / 11), shim
-    28 / 28.
-- **Model-channel rows already had it:** the slot logs OpenRouter's whole reply,
-  `"provider": "DeepInfra"` included, and ingest stores that reply.
-- ✅ **Scratch run `20261102T065619Z-mcp` (PI04, pinned):**
-  - Every one of the 6 trials names `DeepInfra` on all 4 of its calls, matching
-    `provider_pin: deepinfra`.
-  - The outcomes match the earlier pinned runs: LANDED ×3, and the twin LANDED ×3.
-  - `served_by` reads back from the scratch store and from `proof.jq`.
-- ✅ **`c49f863`, docs:** REQ-MD-01, A1 (a) in `docs/OPEN_QUESTIONS.md` and `docs/RESULTS_DB.md`
-  name the new field. The rest of the branch is this snapshot.
-- **Not built (say if wanted):** a check that flags a call served by an upstream other than the pin
-  (e.g. in `db_report.py`).
+- ✅ **`a11f3b2`, the pins and one rule fix:**
+  - `tests/test_lint_prompts.py`, 31 tests on temp configs. They cover:
+    - every rule per field: TC-IDs and near misses, eval vocabulary, hidden characters, trailing
+      labels, hardening in controls, self-grounding, and the "test" warning;
+    - the drivers that skip the attack;
+    - `rows`' merge order (provider config < `defaultTest` < test vars), `file://` tests;
+    - `list_vars`;
+    - `main`'s report and exit code.
+  - **Fix:** `.claude/rules/model-facing-text.md` names "leak" as test vocabulary, but the lint never
+    checked it. `META` now does (test-first). No model-facing field in the repo contains it, so
+    nothing new is flagged.
+- ✅ **`6037944`, the split:**
+  - `RULES` lists each check as (pattern, meaning, fields, controls only); `check()` is one pass
+    over it.
+  - `_model_text()` picks what the model sees.
+  - `_tests()` is the one loader for inline and `file://` tests; `_provider_config()` holds the
+    inherited config.
+  - `SELF_GROUND`'s outer group is non-capturing (that removes the equivalent mutant); `LABEL` uses
+    a lookahead; `HIDDEN` is written as escapes; `ROOT` uses `.absolute()`.
+- **Proof:**
+  - On the repo's own configs, the old and new code give a byte-identical report. `rows()`,
+    `list_vars()` and `check()` match on all 326 real rows. The lint gates runs and doesn't grade
+    trials, so no model run is needed.
+  - CRAP: `rows` 316 → 6, `check` 270 → 7, `main` 61 → 8.
+  - mutator `--mutate-all` 34 / 34 (weak test class 3 / 34). 260 tests OK; dryer: no new pairs.
+- **Left out:** a test entry that is a string but not `file://` is skipped silently, as before. No
+  config has one.
 
 ## Next steps, in order
 
-1. **Owner:** say "merge" for PR #20. Claude then runs `gh pr merge 20 --merge
-   --match-head-commit <sha>` (the sha from `gh pr view 20 --json headRefOid`), then
-   `git checkout main && git pull --ff-only`, and reruns the tests (229).
-2. **Claude:** ub-mode target 5, `scripts/lint_prompts.py` (`rows` / `check` / `main`), on a new
-   branch off `main`, following the job pattern (pin → mutator → split → gates → PR).
-3. Then target 6 (`ingest_run`). After that come the pinned baseline reruns (owner's order).
+1. **Owner:** say "merge" for PR #21. Claude then runs `gh pr merge 21 --merge
+   --match-head-commit <sha>` (the sha from `gh pr view 21 --json headRefOid`), then
+   `git checkout main && git pull --ff-only`, and reruns the tests (260).
+2. **Claude:** ub-mode target 6, `scripts/ingest_run.py` (`ingest` CC 49, `load_catalog`), on a new
+   branch off `main`, following the job pattern. A scratch ingest compared row by row with the
+   store is the end-to-end proof.
+3. Then the pinned baseline reruns: every ub-mode target will be completed or deferred (owner's
+   order).
 
 ## Next ub-mode targets, ranked
 
@@ -57,7 +65,6 @@ deferred.
 
 | # | Target | CRAP (CC, cov) | Why it matters | Work |
 |---|---|---|---|---|
-| 5 | `scripts/lint_prompts.py` `rows` / `check` / `main` | 316 / 270 / 61 | the model-facing-text gate | tests + splits |
 | 6 | `scripts/ingest_run.py` `ingest` / `load_catalog` | 70 (CC 49, 79%) / 118 | results-store integrity | real split |
 
 **Lower value, later:** `db_report.main` (462, reporting only); lab04 drivers (30 each; dryer pair
@@ -72,8 +79,8 @@ datasets: leave); `agentic_goat_provider.call_api` (40.6, 86% covered, CC 37 →
   trials) plus three real reruns from 2026-10-29: `20261029T144843Z-mcp`,
   `20261029T145209Z-tools` and `20261029T145414Z-model_channel` (a 6-row filtered rerun). Those were
   all unpinned. Runs from 2026-11-01 are pinned to `deepinfra` (A1 (a) in
-  `docs/OPEN_QUESTIONS.md`, with the PI04 evidence). 219 unit tests on `main`, 229 on
-  `record-served-provider`; lint shows 0 errors.
+  `docs/OPEN_QUESTIONS.md`, with the PI04 evidence). 229 unit tests on `main`, 260 on
+  `lint-prompts-tests`; lint shows 0 errors.
 - ✅ **PR #11 merged** (`3df20d3`): grading review fixes, the operator notebook's Part B, and an
   operator-first README. After a code update, restart the notebook kernel (else
   `AttributeError: ... setup_ui`).
@@ -101,14 +108,19 @@ datasets: leave); `agentic_goat_provider.call_api` (40.6, 86% covered, CC 37 →
   into one factory per layer, stacked by `install()`. CRAP `_recorded` 110 → 6; mutator 28 / 28.
   Pinned scratch runs: the branch matched `main`, with no NOT_RUN. Edge change: a non-numeric
   `GUARDRAIL_RESAMPLE`, or a lab without `openai`, now warns `[shim] not installed`.
+- ✅ **PR #20 merged** (`b35317f`): the upstream that served each lab call is recorded. The shim
+  writes `provider` per transcript line, and `_compact_transcript` keeps it per call as
+  `served_by`, which flows into `mcp.json`, the store and `proof.jq`. First recorded run:
+  `20261102T065619Z-mcp`, every call `DeepInfra`. Model-channel rows already had it in the slot
+  log's reply.
 
 ## ub-mode baselines (2026-11-01)
 
 - **mutator:** `outcome.py` 100%; `_oracle_*` 100%; `model_channel_provider.py` 94 / 99
   (5 equivalent); `get_assert` 100%; the listener functions 100%; `guardrail_slot/proxy.py` 100%;
-  `shim/sitecustomize.py` 100%.
-- **crapper:** 95 of 299 functions over CRAP 10 (on `main` after PR #19; 110 at the start).
-  42 of the 95 are `operator_lib`, skipped.
+  `shim/sitecustomize.py` 100%; `_compact_transcript` 100%; `lint_prompts.py` 100% (on the branch).
+- **crapper:** 92 of 302 functions over CRAP 10 (on `lint-prompts-tests`; 95 on `main`, 110 at
+  the start). 42 of the 92 are `operator_lib`, skipped.
   `outcome.decide` 17.1 (left whole by recommendation: it reads as the rule table).
 - **dryer @ 0.8:** one pair at 0.85, `lab04_aggregation_leak.py:73-99` ≈
   `lab04_proprietary_leak.py:92-120`.
@@ -157,12 +169,12 @@ datasets: leave); `agentic_goat_provider.call_api` (40.6, 86% covered, CC 37 →
    click through B1 → B2 → B3 in light and dark, and clear outputs before saving.
 3. **Owner: remove** `agentic-goat/labs/05-agentic-memory-attacks/sandbox/audit_log.txt` (run #1
    leftover; Claude's `rm` was denied). The next memory run also deletes it.
-4. **After ub-mode targets 5-6 (owner's order):** rerun the `rag`, `memory` and `a2a` twins as
+4. **After ub-mode target 6 (owner's order):** rerun the `rag`, `memory` and `a2a` twins as
    scratch runs (now pinned), to confirm the forged-block-line rule live and exercise the
    non-canary oracle kinds end to end.
 5. **Decide:** align reasoning effort for `tools`, `a2a` and `web_server` (changing it means
    rerunning their baselines). Pinned reruns of the pre-pin baselines also wait for ub-mode
-   targets 5-6 (REQ-MD-01: each vendor run pairs with a fresh undefended baseline anyway).
+   target 6 (REQ-MD-01: each vendor run pairs with a fresh undefended baseline anyway).
 6. **Phase B:**
    - Build the gateway adapter and the scan adapter, and un-gate the B1 targets.
    - Pair every vendor run with a fresh undefended baseline, and add a `v_vendor_credit` view.
@@ -188,9 +200,10 @@ datasets: leave); `agentic_goat_provider.call_api` (40.6, 86% covered, CC 37 →
 - **Leftovers:**
   - 22 scratch runs in `results/scratch/runs/`.
   - `agentic-goat/labs/03-red-team-assessment/state/` (untracked lab state).
-  - Local branches the owner may prune: `shim-tests`, `slot-proxy-tests`,
-    `assert-exfil-tests`, `docs-pi04-a1a`, `call-api-split`, `oracle-split`, `outcome-mutants`, `ub-mode-setup` and
-    `review-fixes-and-operator-flow` (merged), `notebook-demo-flow`,
+  - Local branches the owner may prune: `record-served-provider`, `shim-tests`,
+    `slot-proxy-tests`, `assert-exfil-tests`, `docs-pi04-a1a`, `call-api-split`, `oracle-split`,
+    `outcome-mutants`, `ub-mode-setup` and `review-fixes-and-operator-flow` (merged),
+    `notebook-demo-flow`,
     `repo-tidy`, `claude-config-trim` (merged), `phase-1-guardrail-eval-harness` and
     `claude/project-thread-31mwvl` (unchecked).
   - Backup at `~/Projects/GuardRails/guardrail-eval-backup-20261028.tar.gz`.

@@ -10,7 +10,7 @@ and `canary` (it is spelled out inside the attack). Labels belong in `descriptio
 `injection_note`, which the model never sees.
 
 ERROR (exit 1): a TC-ID (`PI01`, `JB03-…`), evaluation vocabulary (canary, sentinel,
-guardrail, red team, "(expect …)"), a report label in parentheses at the end of a
+guardrail, red team, leak, "(expect …)"), a report label in parentheses at the end of a
 prompt, a "do not / never" line in a benign control, or a self-grounding line
 ("use only the source", "do not rely on outside knowledge") in any row.
 WARN: the word "test" — legitimate as an attacker's pretext ("for a support-tool test,
@@ -29,77 +29,94 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1] / "promptfoo"
+ROOT = Path(__file__).absolute().parents[1] / "promptfoo"
 CONFIGS = ["mcp", "tools", "rag", "web", "web_server", "memory", "a2a", "model_channel", "redteam"]
 IGNORES_PROMPT = re.compile(r"lab05_stateful_injection|lab07_killchain")
 FIELDS = ("attack", "system_prompt", "seed_content", "source_canary", "canary")
+HIDDEN = re.compile(r"[\u200b-\u200f\u2060\ufeff]|[\U000e0000-\U000e007f]")  # zero-width and tag characters
 
 TC_ID = re.compile(r"\b(?:PI|DLP|JB|OUT|TOOL|EXF|SUP|MEM|CAL|GSI|NF|POL|TOX|MM)-?\d{2}[A-Z]?\b")
 META = re.compile(r"\b(canar(y|ies)|sentinel|guardrail|red[ -]?team|benchmark|eval(uation)?"
-                  r"|known[- ](good|bad)|look-?alike|proprietary IP|exfil\w*)\b|\(expect", re.I)
-LABEL = re.compile(r"\([^()]{3,80}\)\s*$")
+                  r"|known[- ](good|bad)|look-?alike|proprietary IP|exfil\w*|leak\w*)\b|\(expect", re.I)
+LABEL = re.compile(r"\([^()]{3,80}\)(?=\s*$)")
 HARDEN = re.compile(r"\b(do not|don't|never)\b[^.\n]*\b(modify|delete|disclose|reveal|share|store)\b", re.I)
 # Grounding done by the prompt itself (the OUT-04 Band A lesson): an error on any row.
-SELF_GROUND = re.compile(r"\b(use only the|only (use )?the (source|document|context)|strictly from"
+SELF_GROUND = re.compile(r"\b(?:use only the|only (use )?the (source|document|context)|strictly from"
                          r"|do not rely on|outside knowledge|if the (source|document|context) does not)\b", re.I)
 WARN = re.compile(r"\btest(ing)?\b", re.I)
+PROMPTS = ("attack", "system_prompt")
+
+# (pattern, what it means, the fields it covers, benign controls only)
+RULES = (
+    (TC_ID, "test ID", FIELDS, False),
+    (META, "eval vocabulary", FIELDS, False),
+    (LABEL, "report label", ("attack",), False),
+    (HARDEN, "hardening line in a control", PROMPTS, True),
+    (SELF_GROUND, "the prompt grounds itself", (*PROMPTS, "seed_content"), False),
+)
 
 
-def rows(config: str):
-    doc = yaml.safe_load((ROOT / f"{config}.yaml").read_text(encoding="utf-8"))
+def _load(path: Path):
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def _tests(doc: dict) -> list[dict]:
+    """Every test of a config: inline ones and those in `file://` YAML datasets."""
+    tests = doc.get("tests") or []
+    found = []
+    for t in tests if isinstance(tests, list) else [tests]:
+        if isinstance(t, str) and t.startswith("file://"):
+            found += _load(ROOT / t[len("file://"):]) or []
+        elif isinstance(t, dict):
+            found.append(t)
+    return found
+
+
+def _provider_config(doc: dict) -> dict:
+    """The provider (or target) config every row of the file inherits."""
     base = {}
     for p in doc.get("providers") or doc.get("targets") or []:
         if isinstance(p, dict):
             base.update(p.get("config") or {})
-    tests = doc.get("tests") or []
+    return base
+
+
+def rows(config: str):
+    doc = _load(ROOT / f"{config}.yaml")
+    base = _provider_config(doc)
     default_vars = (doc.get("defaultTest") or {}).get("vars") or {}
-    for t in tests if isinstance(tests, list) else [tests]:
-        if isinstance(t, str) and t.startswith("file://"):
-            for x in yaml.safe_load((ROOT / t[len("file://"):]).read_text(encoding="utf-8")) or []:
-                yield x.get("description", ""), {**base, **default_vars, **(x.get("vars") or {})}
-        elif isinstance(t, dict):
-            yield t.get("description", ""), {**base, **default_vars, **(t.get("vars") or {})}
+    for t in _tests(doc):
+        yield t.get("description", ""), {**base, **default_vars, **(t.get("vars") or {})}
     if base.get("system_prompt"):
         yield f"{config} provider config", {"system_prompt": base["system_prompt"]}
 
 
 def list_vars(config: str) -> list[str]:
     """Test vars given as YAML lists (promptfoo would split each into separate cases)."""
-    doc = yaml.safe_load((ROOT / f"{config}.yaml").read_text(encoding="utf-8"))
-    tests = doc.get("tests") or []
+    doc = _load(ROOT / f"{config}.yaml")
     found = [f"defaultTest: {k}" for k, val in ((doc.get("defaultTest") or {}).get("vars") or {}).items()
              if isinstance(val, list)]
-    for t in tests if isinstance(tests, list) else [tests]:
-        items = (yaml.safe_load((ROOT / t[len("file://"):]).read_text(encoding="utf-8")) or []
-                 if isinstance(t, str) and t.startswith("file://") else [t] if isinstance(t, dict) else [])
-        for x in items:
-            found += [f"{x.get('description', '')[:60]}: {k}" for k, val in (x.get("vars") or {}).items()
-                      if isinstance(val, list)]
+    for t in _tests(doc):
+        found += [f"{t.get('description', '')[:60]}: {k}" for k, val in (t.get("vars") or {}).items()
+                  if isinstance(val, list)]
     return found
 
 
+def _model_text(v: dict) -> dict[str, str]:
+    """What the row shows the model, per field, with hidden characters removed."""
+    skip_attack = v.get("run") == "rag_attack" or IGNORES_PROMPT.search(str(v.get("script", "")))
+    return {f: HIDDEN.sub("", v[f]) for f in FIELDS
+            if isinstance(v.get(f), str) and not (f == "attack" and skip_attack)}
+
+
 def check(desc: str, v: dict) -> tuple[list[str], list[str]]:
-    errors, warns = [], []
     benign = str(v.get("benign", "")).lower() in ("1", "true", "yes") or "benign" in desc
-    for field in FIELDS:
-        text = v.get(field)
-        if not isinstance(text, str):
-            continue
-        if field == "attack" and (v.get("run") == "rag_attack" or IGNORES_PROMPT.search(str(v.get("script", "")))):
-            continue
-        plain = re.sub(r"[​-‏⁠﻿]|[\U000e0000-\U000e007f]", "", text)
-        for rx, why in ((TC_ID, "test ID"), (META, "eval vocabulary")):
-            m = rx.search(plain)
-            if m:
-                errors.append(f"{field}: {why} {m.group(0)!r}")
-        if field == "attack" and LABEL.search(plain.strip()):
-            errors.append(f"attack: report label {LABEL.search(plain.strip()).group(0)!r}")
-        if benign and field in ("attack", "system_prompt") and HARDEN.search(plain):
-            errors.append(f"{field}: hardening line in a control {HARDEN.search(plain).group(0)!r}")
-        if field in ("attack", "system_prompt", "seed_content") and SELF_GROUND.search(plain):
-            errors.append(f"{field}: the prompt grounds itself {SELF_GROUND.search(plain).group(0)!r}")
-        if WARN.search(plain):
-            warns.append(f"{field}: {WARN.search(plain).group(0)!r}")
+    text = _model_text(v)
+    errors = [f"{field}: {why} {m.group(0)!r}"
+              for field, plain in text.items()
+              for rx, why, fields, controls_only in RULES
+              if field in fields and (benign or not controls_only) and (m := rx.search(plain))]
+    warns = [f"{field}: {m.group(0)!r}" for field, plain in text.items() if (m := WARN.search(plain))]
     return errors, warns
 
 
