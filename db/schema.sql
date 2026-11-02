@@ -4,9 +4,9 @@
 PRAGMA foreign_keys = ON;
 PRAGMA user_version = 2;
 
--- ── Catalog (from the optional test-case catalog spreadsheet) ──────────────
+-- ── Catalog (legacy: nothing writes it now; stored rows are kept) ───────────
 CREATE TABLE catalog (
-    version      TEXT PRIMARY KEY,               -- '4.2'
+    version      TEXT PRIMARY KEY,               -- e.g. '1.0'
     source_file  TEXT NOT NULL,                  -- catalog file name
     imported_at  TEXT NOT NULL                   -- ISO-8601 UTC
 );

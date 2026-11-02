@@ -28,7 +28,7 @@ flowchart LR
     C --> D["scripts/ingest_run.py"]
     S["results/slot_log.jsonl<br/>provider sink + transcript"] --> D
     D --> E[("results/guardrail_eval.db<br/>SQLite, schema db/schema.sql")]
-    W["COVERAGE.md + optional catalog file"] --> D
+    W["COVERAGE.md"] --> D
     E --> F["scripts/db_report.py"]
     E --> G["coverage dashboard"]
 ```
@@ -58,7 +58,7 @@ away.
 
 | Table | Grain | Filled from |
 |---|---|---|
-| `catalog`, `test_case` | one per catalog version / TC-ID | the optional test-case catalog spreadsheet, when present (gitignored) |
+| `catalog`, `test_case` | one per catalog version / TC-ID | legacy: an earlier ingest loaded them from a catalog file; nothing writes them now, and stored rows are kept |
 | `coverage_snapshot`, `coverage_status` | one per change / TC-ID | `COVERAGE.md` at the run's git commit (snapshotted only when it changed) |
 | `eval_row`, `row_tc` | one per row definition / row→TC link | promptfoo test descriptions + vars; TC links from `COVERAGE.md` |
 | `guardrail` | one per guardrail configuration | run-time settings (`none`, `demo`, later each guardrail + placement + policy hash) |
@@ -113,7 +113,7 @@ the same run.
 | Piece | What it does |
 |---|---|
 | `scripts/run_evals.sh` | Gives each config run `results/runs/<UTC>-<config>/` with `run.json`, the promptfoo JSON / HTML / log and (model channel) the slot wire log; ingests it; copies it to `results/<config>.*` as "latest" only when the run produced output. Env: `GUARDRAIL_ID` (default `none`), `JOBS` (model-channel concurrency), `NO_INGEST=1` (keep a scratch run out of the store). |
-| `scripts/ingest_run.py <run_dir>` | Creates the DB from `db/schema.sql` if missing; loads the catalog once and a `COVERAGE.md` snapshot when it changed, then the run, rows, row→TC links, trials, transcripts and evidence. Re-ingesting a `run_id` is a no-op. |
+| `scripts/ingest_run.py <run_dir>` | Creates the DB from `db/schema.sql` if missing; loads a `COVERAGE.md` snapshot when it changed, then the run, rows, row→TC links, trials, transcripts and evidence. Re-ingesting a `run_id` is a no-op. |
 | `scripts/db_report.py` | Read-only report: coverage counts and the latest attack / twin result per TC-ID; `--runs`, `--rows`, `--guardrail <id>`. |
 
 ## Sizing

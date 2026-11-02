@@ -242,7 +242,6 @@ class EvidenceCapture(unittest.TestCase):
         con = op.ingest_run.connect(db)
         self.addCleanup(con.close)
         with mock.patch.object(op.ingest_run, "coverage_rows", return_value=[]), \
-                mock.patch.object(op.ingest_run, "load_catalog"), \
                 mock.patch.object(op.ingest_run, "name_flag", return_value=None), \
                 mock.patch.object(op.ingest_run, "connect", return_value=con):
             op.ingest_run.ingest(run, db)

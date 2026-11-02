@@ -410,9 +410,9 @@ def coverage() -> dict[str, dict]:
     return out
 
 
-def workbook(db: Path = REAL_DB) -> dict[str, dict]:
-    """TC-ID → catalog row (category, scenario, scope, level, success criteria),
-    as the ingest loaded it into the store. Empty when the store does not exist yet."""
+def stored_catalog(db: Path = REAL_DB) -> dict[str, dict]:
+    """TC-ID → the catalog row an earlier ingest stored (category, scenario, scope, level, success
+    criteria). Empty when the store or the rows don't exist; the cards then use COVERAGE.md."""
     if not db.exists():
         return {}
     cols = ("tc_id", "category", "scenario", "priority", "scope", "level", "success_criteria")
@@ -1226,7 +1226,7 @@ class Demo:
 
     @_paged
     def attack_html(self) -> str:
-        v, wb, tcs = self.vars, workbook(), self.tc_ids()
+        v, wb, tcs = self.vars, stored_catalog(), self.tc_ids()
         facts = [("Row", f"<code>{e(self.word)}</code> · <code>promptfoo/{e(self.config)}.yaml</code>"),
                  ("TC-ID", " ".join(chip(tc, "#455a64") for tc in tcs) or "–"),
                  ("What it does", e(self.description.split(" — ", 1)[-1]))]
@@ -1472,7 +1472,7 @@ def card_html(tc: str) -> str:
     cov = coverage().get(tc)
     if not cov:
         return f"<p>{e(tc)} is not in COVERAGE.md.</p>"
-    wb = workbook().get(tc, {})
+    wb = stored_catalog().get(tc, {})
     secs = test_cases()
     entries = [(s, en) for s in secs for en in s["entries"] if tc in en["tc_ids"]]
     exp = expand(tc=tc)

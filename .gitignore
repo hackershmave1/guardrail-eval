@@ -21,7 +21,7 @@ results/
 .metrics/
 target/
 
-# Optional test-case catalog spreadsheet (ingest loads it when present): never committed
+# Spreadsheets stay out of git
 *.xlsx
 
 # Editor-local settings

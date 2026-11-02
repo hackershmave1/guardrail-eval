@@ -58,9 +58,6 @@ datasets; an edit hook blocks the real company name and other banned text (regex
 - **Docs describe the present.** Rewrite `STATUS.md` as a fresh snapshot, never append; delete
   completed plans; a decision worth keeping goes in the resolved log of `docs/OPEN_QUESTIONS.md`;
   change history lives in git.
-- **Optional catalog file:** `scripts/ingest_run.py` loads a test-case catalog spreadsheet into
-  the store when one is present (gitignored, never committed). Read it with stdlib only (inline
-  strings: parse `xl/worksheets/*.xml` with `zipfile` + `xml.etree`, no openpyxl).
 
 ## Two harness shapes
 
