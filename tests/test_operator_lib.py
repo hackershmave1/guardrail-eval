@@ -211,9 +211,9 @@ class OperatorFlow(unittest.TestCase):
 
     def test_guardrail_id_follows_the_store_naming(self):
         self.assertEqual(op.guardrail_id(op.Session()), "none")
-        s = op.Session(profile="gateway", vendor="Palo Alto AIRS", product="AI Runtime", version="2026.10")
-        self.assertEqual(op.guardrail_id(s), "pa-airs-airuntime-2026.10-ai_gateway")
-        self.assertTrue(op.guardrail_id(op.Session(profile="guardrail_api")).endswith("-sdk"))
+        s = op.Session(profile="gateway", vendor="Acme Guard", product="AI Runtime", version="2026.10")
+        self.assertEqual(op.guardrail_id(s), "acmeguard-airuntime-2026.10-ai_gateway")
+        self.assertEqual(op.guardrail_id(op.Session(profile="guardrail_api")), "unknown-unknown-unknown-sdk")
 
     def test_gateway_routes_both_channels(self):
         eff = {"GATEWAY_BASE_URL": ("https://gw/v1", ".env"), "GATEWAY_API_KEY": ("k", ".env")}
@@ -226,7 +226,7 @@ class OperatorFlow(unittest.TestCase):
         dot = {"API_KEY": "SECRETKEY1", "GATEWAY_API_KEY": "SECRETKEY2", "MODEL": op.CARRIER}
         with mock.patch.object(op, "dotenv_values", return_value=dot):
             for profile in op.PROFILES:
-                out = op.target_html(op.Session(profile=profile, vendor="Noma"))
+                out = op.target_html(op.Session(profile=profile, vendor="Acme Guard"))
                 self.assertNotIn("SECRETKEY", out)
 
     def test_tc_verdict_any_landed_row_fails(self):

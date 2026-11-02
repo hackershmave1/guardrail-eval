@@ -49,7 +49,6 @@ SCRATCH_DB = SCRATCH / "scratch.db"
 SCRATCH_RUNS = SCRATCH / "runs"
 PROMPTFOO_PYTHON = ROOT / "venv" / "bin" / "python"
 CARRIER = "openai/gpt-oss-20b"  # held constant for comparison runs (REQ-MD-01, OPEN_QUESTIONS A1)
-VENDORS = ("Cato/Aim", "Noma", "Palo Alto AIRS", "Zscaler AI Guard")
 
 e = html.escape
 
@@ -1550,7 +1549,6 @@ def known_issues_html() -> str:
 
 
 # ── B1 · set up: machine readiness, target profile, connection check ───────────
-VENDOR_IDS = {"Cato/Aim": "cato-aim", "Noma": "noma", "Palo Alto AIRS": "pa-airs", "Zscaler AI Guard": "zscaler-aiguard"}
 _READY, _GATED = T["oob"], T["inconclusive"]  # never red or green: those mean LANDED and a logged block
 
 
@@ -1601,7 +1599,7 @@ def guardrail_id(s: "Session") -> str:
     if s.profile == "direct":
         return "none"
     slug = lambda x: re.sub(r"[^a-z0-9.]+", "", (x or "").lower()) or "unknown"
-    return "-".join((VENDOR_IDS.get(s.vendor, "unknown"), slug(s.product), slug(s.version),
+    return "-".join((slug(s.vendor), slug(s.product), slug(s.version),
                      PROFILES[s.profile].placement))
 
 
@@ -1660,7 +1658,7 @@ def target_problems(s: "Session", configs: list[str] | tuple = CONFIGS) -> tuple
     errors += [f"{n} is not set ({'add it to .env' if _VAR[n].secret else 'set it in .env or above'})"
                for n, ok, _ in target_needs(s) if not ok]
     if s.profile != "direct" and not s.vendor:
-        errors.append("pick the vendor under test")
+        errors.append("name the vendor under test")
     warnings = []
     for name, ok, detail, _ in readiness(configs):
         if ok is False:
@@ -1794,8 +1792,7 @@ def setup_ui(s: Session):
     wide = {"style": {"description_width": "180px"}, "layout": W.Layout(width="70%")}
     prof = W.ToggleButtons(options=[(p.label, k) for k, p in PROFILES.items()], value=s.profile,
                            description="Target", style={"description_width": "180px"})
-    vendor = W.Dropdown(options=[("(pick the vendor under test)", "")] + [(v, v) for v in VENDORS],
-                        value=s.vendor, description="Vendor", **wide)
+    vendor = W.Text(value=s.vendor, description="Vendor", placeholder="e.g. acme", **wide)
     product = W.Text(value=s.product, description="Product", placeholder="e.g. ai-runtime", **wide)
     version = W.Text(value=s.version, description="Version", placeholder="e.g. 2026.10", **wide)
     eff = effective({})
@@ -1811,7 +1808,8 @@ def setup_ui(s: Session):
                        "non-secret and apply to the next launch only.</small></p>"))
 
     def refresh(_=None):
-        s.profile, s.vendor, s.product, s.version = prof.value, vendor.value, product.value.strip(), version.value.strip()
+        s.profile = prof.value
+        s.vendor, s.product, s.version = (w.value.strip() for w in (vendor, product, version))
         vendor_box.layout.display = None if s.profile != "direct" else "none"
         for n, b in boxes.items():
             b.layout.display = None if n in PROFILES[s.profile].edits else "none"
@@ -1837,8 +1835,7 @@ def setup_ui(s: Session):
             for n, st, d in rows) + "</table>")
 
     vendor_box = W.VBox([vendor, product, version])
-    for w in (prof, vendor):
-        w.observe(refresh, names="value")
+    prof.observe(refresh, names="value")
     apply_b.on_click(on_apply)
     clear_b.on_click(on_clear)
     recheck.on_click(lambda _: (setattr(machine, "value", readiness_html()), refresh()))
