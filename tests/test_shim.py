@@ -33,14 +33,16 @@ MESSAGES = [{"role": "user", "content": "where is my parcel?"}]
 TOOL_CALL = [{"id": "c1", "type": "function", "function": {"name": "track", "arguments": "{}"}}]
 
 
-def completion(content="hi", tool_calls=None, finish="stop", choices=True):
+def completion(content="hi", tool_calls=None, finish="stop", choices=True, provider=None):
     message = {"role": "assistant", "content": content}
     if tool_calls:
         message["tool_calls"] = tool_calls
-    return ChatCompletion.model_validate({
-        "id": "x", "object": "chat.completion", "created": 0, "model": "m",
-        "choices": [{"index": 0, "finish_reason": finish, "message": message}] if choices else [],
-        "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}})
+    reply = {"id": "x", "object": "chat.completion", "created": 0, "model": "m",
+             "choices": [{"index": 0, "finish_reason": finish, "message": message}] if choices else [],
+             "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}}
+    if provider:
+        reply["provider"] = provider  # OpenRouter names the upstream that served the call
+    return ChatCompletion.model_validate(reply)
 
 
 class Shim(unittest.TestCase):
@@ -163,7 +165,7 @@ class Recorder(Shim):
         self.install(replies, GUARDRAIL_TRANSCRIPT=str(self.transcript), **env)
 
     def test_each_call_is_recorded_as_the_lab_sent_it(self):
-        self.record(GUARDRAIL_TRIAL_ID="t-1")
+        self.record([completion(provider="DeepInfra")], GUARDRAIL_TRIAL_ID="t-1")
         tools = [{"type": "function", "function": {"name": "track"}}]
         reply = self.create(tools=tools)
         self.assertEqual(reply.choices[0].message.content, "hi")
@@ -171,7 +173,13 @@ class Recorder(Shim):
         self.assertLessEqual(entry.pop("started_at"), entry.pop("finished_at"))
         self.assertEqual(entry, {"trial_id": "t-1", "resample": 0, "messages": MESSAGES, "tools": tools,
                                  "reply": {"role": "assistant", "content": "hi"}, "finish_reason": "stop",
-                                 "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3}})
+                                 "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+                                 "provider": "DeepInfra"})
+
+    def test_a_reply_that_names_no_upstream_records_none(self):
+        self.record()
+        self.create()
+        self.assertIsNone(self.recorded()[0]["provider"])
 
     def test_the_trial_id_is_sent_unless_the_lab_sent_one(self):
         self.record(GUARDRAIL_TRIAL_ID="t-1")

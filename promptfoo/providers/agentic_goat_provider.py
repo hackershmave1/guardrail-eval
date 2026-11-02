@@ -542,7 +542,8 @@ def _compact_transcript(entries: list[dict]) -> dict:
     An agent loop re-sends the growing message list every turn, so a request
     that extends the previous one replaces it; a request that starts over (Lab
     04 runs several independent queries) opens a new conversation. Tool
-    definitions are kept once.
+    definitions are kept once. `served_by` keeps the upstream of every call, in
+    order, since folding keeps only a conversation's last reply.
     """
     tools, convs = None, []
     for e in entries:
@@ -558,7 +559,7 @@ def _compact_transcript(entries: list[dict]) -> dict:
         for m in c["messages"]:
             if isinstance(m, dict) and isinstance(m.get("content"), str):
                 m["content"] = m["content"][:8000]
-    return {"tools": tools, "conversations": convs}
+    return {"tools": tools, "conversations": convs, "served_by": [e.get("provider") for e in entries]}
 
 
 def _evidence_sources(lab_dir: Path, cfg: dict) -> dict[str, tuple[Path, bool]]:

@@ -7,7 +7,8 @@ Auto-imported (via PYTHONPATH) into every lab subprocess the provider runs.
    poisoned tool description, the injected tool result, the retrieved doc) and
    what it did with it. The request is recorded as the lab sent it: the pre-image
    the delivery check reads (outcome.py). Each line also carries finish_reason,
-   usage, the trial id and the resample index.
+   usage, the trial id, the resample index and the upstream that served the call
+   (OpenRouter's `provider` field; None from an endpoint that doesn't name one).
 
    Empty turns (no text, no tool call) are resampled in place up to
    GUARDRAIL_RESAMPLE times, each one recorded: a dropped turn is a carrier
@@ -98,6 +99,7 @@ def _record(path, trial, kwargs, response, n, started_at):
             "reply": choices[0].message if choices else None,
             "finish_reason": getattr(choices[0], "finish_reason", None) if choices else None,
             "usage": getattr(response, "usage", None),
+            "provider": getattr(response, "provider", None),  # the upstream OpenRouter routed to
         }
         with open(path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(entry, default=_plain) + "\n")

@@ -119,6 +119,15 @@ class Proof(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(json.loads(r.stdout)["not_run"][0]["reason"], "provider crashed")
 
+    def test_landed_names_each_upstream_once(self):
+        tr = {**transcript(), "served_by": ["DeepInfra", None, "DeepInfra"]}
+        doc = {"results": {"results": [{"testCase": {"description": "x", "vars": {}}, "prompt": {"raw": "p"},
+                                        "response": {"output": {"outcome": "LANDED", "transcript": tr}}}]}}
+        r = subprocess.run(["jq", "-f", str(ROOT / "scripts/proof.jq")], input=json.dumps(doc),
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout)["landed"][0]["served_by"], [None, "DeepInfra"])
+
 
 if __name__ == "__main__":
     unittest.main()
