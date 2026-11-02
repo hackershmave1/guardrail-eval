@@ -1,93 +1,77 @@
 # STATUS
 
-As of 2026-11-02 · branch `harness-polish` (off `main` at `f132fad`, where PR #26 merged),
-pushed as **PR #27**, which reads MERGEABLE / CLEAN. Rules live in `CLAUDE.md` and
+As of 2026-11-02 · `main` at `3561ae0` (PR #27 merged; 338 tests pass on `main`). This snapshot
+is committed on branch `status-after-27` (not pushed). Rules live in `CLAUDE.md` and
 `.claude/rules/`; shipping steps in the `ship` skill.
 
-**Waiting on:** the owner's go to merge PR #27. All four polish items are committed and every
-ship check passes:
-- 338 tests pass, also in a clean checkout;
-- lint 0 errors; every config validates;
-- added lines: 0 banned-text and 0 key-like matches;
-- submodule pointer unchanged.
+**Holding:** the owner said "merge and hold there". Nothing is in progress.
 
-**Next, after the merge:**
-1. `git checkout main && git pull --ff-only`, then rerun the tests.
-2. Rewrite this file.
-3. The owner picks the next track (below).
+**Next:** the owner picks the next track (decision 1 below). Until then, start no new work.
+This STATUS branch ships with the next PR, or alone if the owner asks.
 
 ```mermaid
 flowchart LR
-    A["28 test cases ✅<br/>undefended baselines land"] --> P["harness polish ✅<br/>PR #27: awaiting merge"]
-    P --> C["Owner: decisions<br/>+ visual check"]
+    A["28 test cases ✅<br/>undefended baselines land"] --> P["harness polish ✅<br/>PR #27"]
+    P --> C["Owner: decisions<br/>+ visual check<br/>(holding here)"]
     C --> D["guardrail adapters<br/>gateway + scan"]
     D --> E["guardrails in the loop"]
     N["product-neutral repo ✅<br/>PR #26"] -.-> P
-    H["housekeeping ✅<br/>22 branches, 25 scratch runs"] -.-> P
 ```
-
-## PR #27: harness polish
-
-| Commit | What | Proof |
-|---|---|---|
-| `0aa6341`, `0ff170e` | STATUS snapshots | — |
-| `fa09754` | `_reset_state` comment gives the real reason JSON sinks are unlinked; Lab 06 reads an empty log as `[]` | read `exfil_server.py` / `canary.py`; suite passes |
-| `0c8d8d3` | `run.reasoning_effort`: ingest records what the rows' vars and provider configs asked for (`low`; NULL when nothing set one) | test first; 8 pinned-rerun outputs read `low`, `a2a` NULL |
-| `0b5f7bc` | `off-pin` flag in `transcript.flags` for a call served outside `provider_pin`; the ingest line counts them | test first; real runs flag 0, re-pinned copies flag 18/18 and 804/807; mutator 114/114, weak run 112 survivors |
-| `cb3f705` | Migration 003: `coverage_status.priority` from COVERAGE.md; `db_report.py` prints it on a fresh store (schema v3) | test first (`?` before); a real store copy migrates to v3 with a byte-identical report; a fresh store shows 28 priorities, 0 `?`; mutator 114/114; crapper: changed ingest functions ≤ 8, `db_report.main` 462 → 41.8 |
-
-- **When the real store next ingests:**
-  - It migrates to v3.
-  - A new COVERAGE snapshot carries priorities.
-  - The 14 extensions then drop out of `db_report`'s TC-ID table. This is PR #26's COVERAGE
-    change reaching the store.
-- **Stored runs** keep NULL `reasoning_effort` and no `off-pin` flags (append-only). New ingests
-  fill both.
-- **Deferred:** `db_report.main` is still CRAP 41.8. It is reporting only.
 
 ## Done
 
 - ✅ **The suite:** a Promptfoo harness that evaluates AgenticGoat on 28 test cases, including
   all 10 P0s, for guardrail evaluations or for learning. Every undefended baseline lands on
   `openai/gpt-oss-20b`, pinned to DeepInfra (`docs/COVERAGE.md`).
-- ✅ **PRs #11-#26 merged:**
+- ✅ **PRs #11-#27 merged:**
   - ub-mode targets 1-9 (#16-#23);
   - `tools` at effort `low` and the pinned rerun (#24);
   - the docs quote the rerun (#25);
   - the product-neutral repo (#26): no vendor or spreadsheet named, the loader removed, B1's
-    Vendor is free text.
+    Vendor is free text;
+  - harness polish (#27), four fixes:
+    - the `_reset_state` comment;
+    - `run.reasoning_effort`;
+    - the `off-pin` transcript flag;
+    - `coverage_status.priority` (schema v3), so `db_report` shows priorities on a fresh
+      clone.
 - ✅ **Housekeeping (2026-11-02):**
-  - 22 merged local branches pruned; only `main` and `harness-polish` remain.
+  - Merged local branches pruned.
   - 25 scratch runs deleted (77 MB → 1.4 MB).
   - Kept: `20261102T140909Z-web_server`, a newer `WEB-SRV-comment` notebook demo run, probably
     the owner's.
-  - Kept: `results/scratch/scratch.db`. It holds full transcripts and does not need the run
-    dirs.
+  - Kept: `results/scratch/scratch.db`. It holds full transcripts.
+
+**What PR #27 means for the real store:**
+- The next ingest migrates it to v3 and takes a COVERAGE snapshot with priorities.
+- That snapshot also drops the 14 extensions from `db_report`'s TC-ID table. This is PR #26's
+  COVERAGE change reaching the store.
+- Stored runs keep NULL `reasoning_effort` and no `off-pin` flags (append-only). New ingests fill
+  both.
 
 ## Decisions waiting on the owner
 
-1. **Merge PR #27** (`gh pr merge 27 --merge --match-head-commit <head sha>`).
-2. **What comes next:**
+1. **What comes next:**
    - **Guardrail adapters** (the main road): a first guardrail and its deployment mode (A4),
      then its C1-C10 answers.
    - **The remaining polish:**
      - look into `MC-PI05-CTRL` volunteering the canary;
      - pick a decode-safe canary for `MC-JB06-01`.
    - **Extensions:** the 14 in `docs/COVERAGE.md`.
-3. **Spec calls:**
+2. **Spec calls:**
    - B1: label DLP-03 "Application-targeted" (recommended).
    - A7: the JB-04 language set.
    - A3: agent-row payload variants.
    - A2: scoring weights (defer until guardrails are compared).
-4. **Extensions to keep or drop:**
+3. **Extensions to keep or drop:**
    - A1 (b) harm carrier;
    - A5 multimodal;
    - A6 text-to-SQL;
    - C2 raw files.
-5. **Still open from housekeeping:** clear the untracked lab state. Not asked for yet.
+4. **Clear the untracked lab state?** Not asked for yet.
    - `agentic-goat/labs/03-red-team-assessment/state/`
    - `labs/05-agentic-memory-attacks/sandbox/session_note.txt`
-6. **Owner's task:** the notebook visual check.
+5. **Owner's task:** the notebook visual check.
    - Restart the kernel and Run All with `RUN_LIVE = False`.
    - Click through B1 → B2 → B3 in light and dark; B1's Vendor is a text box.
    - Clear outputs before saving.
@@ -107,7 +91,7 @@ flowchart LR
   - Bump `user_version` and ship `db/NNN_*.sql`.
   - A new column goes last in `schema.sql` too, so fresh and migrated stores match.
   - Inserts name their columns.
-  - The store is at v3.
+  - The schema is at v3.
 - **The `coverage_rows()` tuple:** `(tc_id, status, priority, section, target, notes, tokens)`.
   The ingest, the snapshot, the notebook and the test fixtures unpack it, so change them
   together.
@@ -128,8 +112,9 @@ flowchart LR
   `gh api -X PATCH repos/hackershmave1/guardrail-eval/pulls/<n> -F "body=@file"`.
 - **ub-mode baselines:**
   - mutator 100% on the grading path, slot, shim, lint, ingest, run_meta and the edit hook.
-  - crapper: before this branch, 61 of 199 functions in `scripts` + `notebooks` were over 10, 42
-    of them in `operator_lib` (skipped).
+  - crapper: 61 of 199 functions in `scripts` + `notebooks` were over 10 before PR #27, 42 of
+    them in `operator_lib` (skipped). `db_report.main` is 41.8 (was 462); deferred, reporting
+    only.
   - dryer: one pair at 0.85.
 
 ## Findings worth keeping
