@@ -1,17 +1,17 @@
 # STATUS
 
-As of 2026-11-02 · branch `docs-refresh-rerun` (off `main` at `513c4dc`, where PR #24 merged
-`tools` at reasoning effort `low` and the pinned rerun's results). Rules live in `CLAUDE.md` and
-`.claude/rules/`; shipping steps in the `ship` skill.
+As of 2026-11-02 · branch `status-after-25` (off `main` at `353766c`, where PR #25 merged the docs
+refresh; this branch holds only this snapshot). Rules live in `CLAUDE.md` and `.claude/rules/`;
+shipping steps in the `ship` skill.
 
 - ✅ Every ub-mode target is done or deferred (PRs #16-#23).
-- ✅ `tools` runs at reasoning effort `low` like every other config (PR #24, merged).
+- ✅ `tools` runs at reasoning effort `low` like every other config (PR #24).
 - ✅ The pinned baseline rerun is done: 28 / 28 covered TC-IDs still land.
-- ✅ The docs quote it: `COVERAGE.md`, `TEST_CASES.md`, `OPEN_QUESTIONS.md` A1 (a) / A1a, the
-  PI-04 worked example, the README sample (PR #25).
-- **Stopped at:** PR #25 (https://github.com/hackershmave1/guardrail-eval/pull/25) is pushed at
-  the branch tip, MERGEABLE / CLEAN, waiting on the owner's go. Nothing is in progress; the tree is
-  clean apart from untracked lab state in `agentic-goat`.
+- ✅ The docs quote it (PR #25): `COVERAGE.md`, `TEST_CASES.md`, `OPEN_QUESTIONS.md` A1 (a) / A1a,
+  the PI-04 worked example, the README sample. 334 tests pass on `main` after the merge.
+- **Stopped at:** nothing in progress. The tree is clean apart from untracked lab state in
+  `agentic-goat`. This snapshot is committed on `status-after-25`, not pushed; carry it into the
+  next topic branch's PR (or push it on its own when the owner asks).
 
 ```mermaid
 flowchart LR
@@ -19,47 +19,30 @@ flowchart LR
     W --> C["Owner: visual check<br/>+ small decisions"]
     C --> D["Phase B<br/>gateway + scan adapters<br/>un-gate vendor targets"]
     D --> E["Phase 2<br/>vendors in the loop"]
-    U["ub-mode targets 1-9 ✅<br/>PRs #16-#23"] -.-> R["tools effort low ✅<br/>PR #24 merged"]
+    U["ub-mode targets 1-9 ✅<br/>PRs #16-#23"] -.-> R["tools effort low ✅<br/>PR #24"]
     R -.-> B["pinned baseline rerun ✅<br/>28 / 28 TC-IDs land"]
-    B -.-> K["docs refresh ✅<br/>PR #25 open"]
+    B -.-> K["docs refresh ✅<br/>PR #25"]
     P["provider pinned ✅<br/>deepinfra bf16<br/>served_by recorded ✅"] -.-> B
 ```
 
-## Next steps, in order
+## Next steps, in order (owner picks)
 
-1. **Owner: say "merge" for PR #25** (branch `docs-refresh-rerun`). Claude then runs
-   `gh pr merge 25 --merge --match-head-commit <branch tip sha>`, then `git checkout main && git
-   pull --ff-only`, and reruns the tests (334).
-2. **Optional follow-ups:**
+1. **Optional follow-ups** (each its own topic branch off `main`):
    - Record reasoning effort in `run.json`. The store's `run.reasoning_effort` is NULL for every
      run; effort is a per-row var.
    - A check that flags a call served by an upstream other than the pin.
    - The one-line `_reset_state` comment fix (`agentic_goat_provider.py:193-195` says Lab 06's
      listener crashes on an empty `exfil_log.json`; `exfil_server.py:13-19` reads it as `[]`).
-3. **Owner: visual check** of the notebook. Restart the kernel, Run All with `RUN_LIVE = False`,
+   - Look at `MC-PI05-CTRL` volunteering the canary, and a decode-only calibration for
+     `MC-JB06-01` (Findings).
+2. **Owner: visual check** of the notebook. Restart the kernel, Run All with `RUN_LIVE = False`,
    click through B1 → B2 → B3 in light and dark, and clear outputs before saving.
-4. **Phase B:**
+3. **Phase B:**
    - Build the gateway adapter and the scan adapter, and un-gate the B1 targets.
    - Pair every vendor run with a fresh undefended baseline, and add a `v_vendor_credit` view.
    - Add an MCP tap, so a vendor can be credited for PI-04 at H10.
    - Add HMAC-signed events, a hook-order self-test and a fixed-refusal hook policy.
    - Redraw `docs/ARCHITECTURE.md`, and get vendor answers to C8–C10.
-
-## PR #25: the docs refresh
-
-| Commit | What |
-|---|---|
-| `ffaa516` | `COVERAGE.md`: every covered row's count from the pinned rerun, run #1 named where it moved. Layout and row-ID tokens unchanged; still 28 covered |
-| `551664c` | `TEST_CASES.md`: each "Baseline" line to match, with why two reference twins now land under the pin; PI-01 per family and PI-05 per technique recomputed; `MC-DLP01` fixed to 75/75 (the store has 75 trials, not 81) |
-| `d0f5904` | `OPEN_QUESTIONS.md` A1 (a) records the pinned baselines, A1a the SUP01 twin under the pin; the PI-04 worked example is labelled as the traced unpinned run; the README sample uses the `RAG-DLP04` pair, which holds in both runs |
-
-- **Proof:** counts read per row and per family from `results/guardrail_eval.db` (run #1 vs
-  `20261102T10*`). `tests.test_operator_lib` and `tests.test_ingest_run` parse the edited files
-  and pass; the full suite passes in a clean checkout (334); prompt lint 0 errors;
-  `promptfoo validate` on all 9 configs; banned-text and key scans of the added lines 0 matches;
-  submodule pointer unchanged.
-- **Left out on purpose:** the coverage dashboard (on hold); A8's 26/378 company-name count (not
-  recomputed).
 
 ## The pinned baseline rerun (2026-11-02) ✅
 
@@ -115,13 +98,14 @@ well-tested code, or untested code that can't touch a verdict.
   (2026-10-25/26, 9 runs, 981 trials, unpinned), three unpinned reruns from 2026-10-29 (`mcp`,
   filtered `tools` and `model_channel`), and the pinned full rerun of 2026-11-02 (8 runs, 975
   trials, `deepinfra`; A1 (a) in `docs/OPEN_QUESTIONS.md`). 334 unit tests; lint shows 0 errors.
-- ✅ **PRs #11-#24 merged.** In brief: #11 grading review fixes, notebook Part B, operator-first
+- ✅ **PRs #11-#25 merged.** In brief: #11 grading review fixes, notebook Part B, operator-first
   README · #12 ub-mode with honest tools (`tests/__init__.py`, `.absolute()` paths) · #13
   `outcome.py` at mutator 100% · #14 `_oracle` split (`http_callback` with no markers raises) ·
   #15 model-channel `call_api` split · #16 `get_assert`, `_maybe_start_exfil` (no listener of ours
   on :9999 = NOT-RUN) · #17 A1 (a) provider pin, PI-04 worked example · #18 guardrail slot · #19
   lab-side shim · #20 `served_by` per lab call · #21 `lint_prompts.py` ("leak" flagged) · #22
-  `ingest_run.py` · #23 targets 7-9 · #24 `tools` at `low` and the pinned rerun. After a code
+  `ingest_run.py` · #23 targets 7-9 · #24 `tools` at `low` and the pinned rerun · #25 the docs quote the pinned rerun
+  (A8's 26/378 company-name count not recomputed). After a code
   update, restart the notebook kernel (else `AttributeError: ... setup_ui`).
 
 ## Patterns and decisions
@@ -200,7 +184,7 @@ well-tested code, or untested code that can't touch a verdict.
   - 25 scratch runs in `results/scratch/runs/` (one, `20261026T131657Z-mcp`, has no `run.json`).
   - Untracked lab state: `agentic-goat/labs/03-red-team-assessment/state/` and
     `labs/05-agentic-memory-attacks/sandbox/session_note.txt` (from the memory rerun).
-  - Local branches the owner may prune: everything besides `main` and `docs-refresh-rerun` is
+  - Local branches the owner may prune: everything besides `main` and `status-after-25` is
     merged into `main` (`git branch --merged main`).
   - Backup at `~/Projects/GuardRails/guardrail-eval-backup-20261028.tar.gz`.
 
