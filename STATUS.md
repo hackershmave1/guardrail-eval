@@ -1,9 +1,10 @@
 # STATUS
 
-As of 2026-11-02 · branch `status-after-23` (off `main` at `05916ce`, where PR #23 merged ub-mode
-targets 7-9): **every ub-mode target is done or deferred**, so the pinned baseline reruns are next
-(the owner's order, 2026-11-01). One owner decision comes first: reasoning effort for `tools`.
-Rules live in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship` skill.
+As of 2026-11-02 · branch `tools-effort-low` (off `main` at `05916ce`, where PR #23 merged ub-mode
+targets 7-9): every ub-mode target is done or deferred, and `tools` now runs at reasoning effort
+`low` like every other config (owner, 2026-11-02). **The pinned baseline reruns are running** from
+this branch's committed head (owner's go, 2026-11-02). Rules live in `CLAUDE.md` and
+`.claude/rules/`; shipping steps in the `ship` skill.
 
 ```mermaid
 flowchart LR
@@ -11,30 +12,20 @@ flowchart LR
     W --> C["Owner: visual check<br/>+ small decisions"]
     C --> D["Phase B<br/>gateway + scan adapters<br/>un-gate vendor targets"]
     D --> E["Phase 2<br/>vendors in the loop"]
-    U["ub-mode targets 1-9 ✅<br/>PRs #16-#23"] -.-> R["Owner: tools<br/>reasoning effort"]
-    R -.-> B["pinned<br/>baseline reruns"]
+    U["ub-mode targets 1-9 ✅<br/>PRs #16-#23"] -.-> R["tools effort low ✅"]
+    R -.-> B["pinned baseline reruns<br/>running"]
     P["provider pinned ✅<br/>deepinfra bf16<br/>served_by recorded ✅"] -.-> B
 ```
 
 ## Next steps, in order
 
-1. **Owner: decide on reasoning effort for `tools`** (asked 2026-11-02):
-   - Every model-calling config pins the carrier at `low` except `tools`: `mcp` (`defaultTest`),
-     `rag`, `memory`, `web`, `model_channel` and the generated `web_server` rows (per row).
-     `a2a` needs nothing: Lab 07 makes no model call.
-     `redteam` (Lab 03, generated probes) is also at the default, but it is not in the full suite.
-   - `tools` runs 8 rows on Labs 01 and 03 at the provider default. Lab 01's rows in `mcp` run at
-     `low`, so the same lab runs at two efforts. In run #1, `TOOLS-EXF02` was NOT-RUN once and
-     resampled 5 times in 6 trials; the 10-29 rerun resampled 3 times in 3 trials.
-   - Proposed: one `defaultTest.vars.reasoning_effort: low` in `promptfoo/tools.yaml` (as in
-     `mcp.yaml`), a resolved-log line under A1 in `docs/OPEN_QUESTIONS.md`, and the reruns
-     recording it. The tools rerun is then a new baseline at `low`, not row-comparable with run #1.
-   - Side gap: the store's `run.reasoning_effort` is NULL for every run. Effort is a per-row var,
-     and `run_meta` never records it.
-2. **Owner: say "go" for the pinned baseline reruns.**
-3. **Pinned baseline reruns** (after 1 and 2):
-   - `REPEAT=3 scripts/run_evals.sh` (every config) into the real store. Each run is pinned to
-     `deepinfra` and records `served_by` per call.
+1. **Running: the pinned baseline reruns** (`e30d86c` aligned `tools` to `low`; scratch run
+   `20261102T100924Z-tools`: 7 rows at `low`, 0 resamples, every call DeepInfra, baselines land,
+   control CLEAN). `run.reasoning_effort` in the store stays NULL: effort is a per-row var that
+   `run_meta` does not record (a small follow-up if wanted).
+2. **Then, from the rerun results:**
+   - The run: `REPEAT=3 scripts/run_evals.sh` (every config) into the real store. Each run is
+     pinned to `deepinfra` and records `served_by` per call.
    - Compare each row with run #1 and the 10-29 reruns. Then update `docs/COVERAGE.md` (source of
      truth first; e.g. SUP01's twin, now 2/3 landed under the pin) and `docs/TEST_CASES.md`.
    - This also covers the `rag`, `memory` and `a2a` twins, the forged-block-line rule live, and the
@@ -218,4 +209,3 @@ well-tested code, or untested code that can't touch a verdict.
 - Rows needing owner input: harm carrier (A1b → JB-01, JB-02, TOX-01); other targets (A6 → OUT-03,
   C2 → PI-06, A5 → MM-01/02).
 - Coverage dashboard (artifact NzLwm4t7…): not to be refreshed (owner, 2026-10-26).
-- Baseline reruns: until the owner decides on `tools` reasoning effort and says go.
