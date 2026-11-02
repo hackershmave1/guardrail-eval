@@ -1,84 +1,75 @@
 # STATUS
 
-As of 2026-11-02 · branch `agnostic-docs` (off `main` at `353766c`, where PR #25 merged the docs
-refresh). Rules live in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship` skill.
+As of 2026-11-02 · branch `status-after-26` (off `main` at `f132fad`, where PR #26 merged the
+product-neutral repo; this branch holds only this snapshot). Rules live in `CLAUDE.md` and
+`.claude/rules/`; shipping steps in the `ship` skill.
 
 - ✅ Every ub-mode target is done or deferred (PRs #16-#23).
 - ✅ `tools` runs at reasoning effort `low` like every other config (PR #24).
 - ✅ The pinned baseline rerun is done; the docs quote it (PR #25): 28 / 28 TC-IDs land.
-- ✅ **The repo is product-neutral** (PR #26): a Promptfoo harness that evaluates an agentic app
-  on 28 test cases, for guardrail evaluations or for learning.
-  - No named guardrail vendors, and no source spreadsheet; TC-IDs and REQ-IDs are the
-    harness's own catalog.
-  - The 14 unbuilt TC-IDs are "Possible extensions" in `docs/COVERAGE.md`.
-  - The spreadsheet loader is gone from `ingest_run.py`.
-  - The notebook's vendor is free text, slugged into the `guardrail_id`.
-- **Stopped at:** PR #26 (https://github.com/hackershmave1/guardrail-eval/pull/26) is pushed at
-  the branch tip and waits on the owner's go. Nothing is in progress; the tree is clean apart
-  from untracked lab state in `agentic-goat`.
+- ✅ The repo is product-neutral (PR #26):
+  - It is a Promptfoo harness for 28 test cases, for guardrail evaluations or for learning.
+  - No vendor or spreadsheet is named, and no spreadsheet loader remains.
+  - B1's Vendor is free text, slugged into the `guardrail_id`.
+  - The 14 unbuilt TC-IDs are "Possible extensions".
+  - 333 tests pass on `main`.
+- **Stopped at:** nothing in progress; waiting on the owner's decisions below. This snapshot is
+  committed on `status-after-26`, not pushed; carry it into the next topic branch's PR.
 
 ```mermaid
 flowchart LR
     A["28 test cases ✅<br/>undefended baselines land"] --> W["PI-04 worked example ✅"]
-    W --> C["Owner: visual check<br/>+ small decisions"]
+    W --> C["Owner: visual check<br/>+ decisions below"]
     C --> D["guardrail adapters<br/>gateway + scan<br/>un-gate guardrail targets"]
     D --> E["guardrails in the loop"]
     U["ub-mode targets 1-9 ✅<br/>PRs #16-#23"] -.-> R["tools effort low ✅<br/>PR #24"]
     R -.-> B["pinned baseline rerun ✅<br/>docs refresh ✅ PR #25"]
-    B -.-> N["product-neutral repo ✅<br/>PR #26 open"]
+    B -.-> N["product-neutral repo ✅<br/>PR #26"]
     P["provider pinned ✅<br/>deepinfra bf16<br/>served_by recorded ✅"] -.-> B
 ```
 
-## Next steps, in order
+## Decisions waiting on the owner
 
-1. **Owner: say "merge" for PR #26** (branch `agnostic-docs`). Claude then runs
-   `gh pr merge 26 --merge --match-head-commit <branch tip sha>`, then `git checkout main && git
-   pull --ff-only`, and reruns the tests (333).
-2. **Optional follow-ups:**
-   - A TC-ID's priority in `db_report.py` comes from the legacy `test_case` table, so a fresh
-     store (any new clone) prints `?`. Fix: carry priority in `coverage_status` from
-     `COVERAGE.md` (a schema migration).
-   - Record reasoning effort in `run.json`. The store's `run.reasoning_effort` is NULL for every
-     run; effort is a per-row var.
-   - A check that flags a call served by an upstream other than the pin.
-   - The one-line `_reset_state` comment fix (`agentic_goat_provider.py:193-195` says Lab 06's
-     listener crashes on an empty `exfil_log.json`; `exfil_server.py:13-19` reads it as `[]`).
-   - Look at `MC-PI05-CTRL` volunteering the canary, and a decode-only calibration for
-     `MC-JB06-01` (Findings).
-3. **Owner: visual check** of the notebook. Restart the kernel, Run All with `RUN_LIVE = False`,
-   click through B1 → B2 → B3 in light and dark (B1's Vendor is now a text box), and clear outputs
-   before saving.
-4. **Guardrail adapters:**
-   - Build the gateway adapter and the scan adapter, and un-gate the B1 targets.
-   - Pair every guardrail run with a fresh undefended baseline, and add a credit view.
-   - Add an MCP tap, so a guardrail can be credited for PI-04 at H10.
-   - Add HMAC-signed events, a hook-order self-test and a fixed-refusal hook policy.
-   - Redraw `docs/ARCHITECTURE.md`, and get each guardrail provider's answers to C8–C10.
+1. **What comes next** (pick one track):
+   - **Guardrail adapters** (the main road). This needs a first guardrail to wire in, and its
+     deployment mode (A4): a gateway, or a scan API at the slot and the shim. Each guardrail
+     then answers the C-questions (C1-C10) before its rows are scored.
+   - **Harness polish:**
+     - db_report priority on a fresh store;
+     - reasoning effort in `run.json`;
+     - the off-pin upstream check;
+     - the `_reset_state` comment;
+     - the `MC-PI05-CTRL` look;
+     - the `MC-JB06-01` decode calibration.
+   - **Extensions** (the 14 in `docs/COVERAGE.md`).
+2. **Spec calls the owner now holds** (the catalog is the harness's own):
+   - B1: label DLP-03 "Application-targeted" (how it is tested) instead of "Model-level".
+   - A7: the JB-04 language set (stand-in: de, es, fr, he, EN→DE / EN→ES), and a fail-open
+     language.
+   - A3: one scenario × 3 per agent row, or payload variants toward 20-30.
+   - A2: scoring weights and thresholds. These only matter once guardrails are compared.
+3. **Extensions to keep or drop:** A1 (b) a harm carrier (JB-01, JB-02, TOX-01), A5 multimodal
+   (MM-01/02), A6 text-to-SQL (OUT-03), C2 raw files (PI-06).
+4. **Housekeeping (say "go"):**
+   - prune 22 merged local branches;
+   - delete 25 scratch runs;
+   - clear the untracked lab state.
+5. **Not a decision, owner's task:** the notebook visual check (restart the kernel, Run All with
+   `RUN_LIVE = False`, B1 → B2 → B3 in light and dark; B1's Vendor is now a text box; clear
+   outputs before saving).
 
-## PR #26: product-neutral repo
+## Recently merged
 
-| Commit | What |
-|---|---|
-| `cf7aaea` | STATUS after PR #25 merged |
-| `d407768` | `COVERAGE.md`: the 28 covered TC-IDs are the suite; the 14 unbuilt ones are "Possible extensions" (what each needs, the build plan). `test_operator_lib` counts 28; the notebook's no-spec hint names the new section |
-| `36cd2aa` | README, CLAUDE.md, `docs/`, `.claude/rules`, `.env.example`: the new framing; "vendor" → "guardrail" (kept: the Lab 03 fixture `vendor-onboarding`, `openrouter:<vendor>/<model>`); workbook / tab / file citations → the harness's own; "Phase 1/2" → with / without a guardrail in the loop; CLAUDE.md gains a product-neutral rule |
-| `a62d3b3` | Config headers, docstrings, schema / test comments, notebook on-screen text; `.gitignore` ignores `*.xlsx`; the TC-ID card reads the renamed "Guardrail bar" field |
-| `dc7a6c3` | `ingest_run.py` drops the spreadsheet loader and its "not found" note. The `catalog` / `test_case` tables and their stored rows stay (append-only; no migration). The notebook reader is `stored_catalog()` |
-| `3a04d52` | B1's Vendor is free text; `guardrail_id` slugs it like product and version; `VENDORS` / `VENDOR_IDS` are gone |
-
-- **Proof:**
-  - Tests: 333 pass. New tests first: an ingest prints no catalog note; an unlisted vendor gets
-    its own id slug.
-  - The gated-profile test checks "adapter", not "Phase B".
-  - Real input: run `20261102T104031Z-web` ingested by `main`'s and the new `ingest_run.py` into
-    identical stores (96 rows).
-  - Headless B1: typed vendor → `acmeguard-edge-unknown-ai_gateway`.
-  - crapper: no new function over 10. mutator: `ingest_run.py` 98/98; a `--mutate-all`
-    weak-test run leaves 96 survivors.
-  - Prompt lint 0 errors; `promptfoo validate` on all 9 configs.
-  - Banned-text and key scans of the added lines: 0 matches.
-- **Kept on purpose:** the store's `guardrail.vendor` column (the owner is fine with every
-  guardrail run being recorded there).
+- **PR #26** (`f132fad`): product-neutral repo.
+  - The 28-test-case framing; "vendor" → "guardrail" in docs, rules and comments.
+  - COVERAGE "Possible extensions".
+  - The spreadsheet loader removed; legacy `catalog` / `test_case` rows stay in the store.
+  - A free-text vendor in B1.
+  - Proof:
+    - 333 tests;
+    - identical stores from old and new ingest on a real run;
+    - mutator `ingest_run.py` 98/98;
+    - no new CRAP > 10.
 
 ## The pinned baseline rerun (2026-11-02) ✅
 
@@ -125,7 +116,7 @@ well-tested code, or untested code that can't touch a verdict.
     (88%), `outcome.decide` 17 (93%, kept whole as the rule table), `_model_text` 13 (100%),
     `_tool_called` 12 (88%), `_compact_transcript` 12 (100%), `_build_cmd` 36 (31%; a bad command
     crashes the lab).
-- **Skipped by the owner:** `operator_lib`'s 42 (`setup_ui` is 67.7 after PR #26).
+- **Skipped by the owner:** `operator_lib`'s 42 (`setup_ui` 67.7).
 
 ## Where things stand
 
@@ -134,15 +125,15 @@ well-tested code, or untested code that can't touch a verdict.
   (2026-10-25/26, 9 runs, 981 trials, unpinned), three unpinned reruns from 2026-10-29 (`mcp`,
   filtered `tools` and `model_channel`), and the pinned full rerun of 2026-11-02 (8 runs, 975
   trials, `deepinfra`; A1 (a) in `docs/OPEN_QUESTIONS.md`). 333 unit tests; lint shows 0 errors.
-- ✅ **PRs #11-#25 merged.** In brief: #11 grading review fixes, notebook Part B, operator-first
+- ✅ **PRs #11-#26 merged.** In brief: #11 grading review fixes, notebook Part B, operator-first
   README · #12 ub-mode with honest tools (`tests/__init__.py`, `.absolute()` paths) · #13
   `outcome.py` at mutator 100% · #14 `_oracle` split (`http_callback` with no markers raises) ·
   #15 model-channel `call_api` split · #16 `get_assert`, `_maybe_start_exfil` (no listener of ours
   on :9999 = NOT-RUN) · #17 A1 (a) provider pin, PI-04 worked example · #18 guardrail slot · #19
   lab-side shim · #20 `served_by` per lab call · #21 `lint_prompts.py` ("leak" flagged) · #22
   `ingest_run.py` · #23 targets 7-9 · #24 `tools` at `low` and the pinned rerun · #25 the docs
-  quote the pinned rerun (A8's 26/378 company-name count not recomputed). After a code update,
-  restart the notebook kernel (else `AttributeError: ... setup_ui`).
+  quote the pinned rerun (A8's 26/378 company-name count not recomputed) · #26 product-neutral
+  repo. After a code update, restart the notebook kernel (else `AttributeError: ... setup_ui`).
 
 ## Patterns and decisions
 
@@ -228,8 +219,8 @@ well-tested code, or untested code that can't touch a verdict.
   - 25 scratch runs in `results/scratch/runs/` (one, `20261026T131657Z-mcp`, has no `run.json`).
   - Untracked lab state: `agentic-goat/labs/03-red-team-assessment/state/` and
     `labs/05-agentic-memory-attacks/sandbox/session_note.txt` (from the memory rerun).
-  - Local branches the owner may prune: `status-after-25` (its commit rides in PR #26) and every
-    branch merged into `main` (`git branch --merged main`).
+  - Local branches the owner may prune: every branch merged into `main` (`git branch --merged
+    main`), `status-after-25` included.
   - Backup at `~/Projects/GuardRails/guardrail-eval-backup-20261028.tar.gz`.
 
 ## On hold
