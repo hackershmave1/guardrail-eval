@@ -2,8 +2,9 @@
 
 As of 2026-11-02 · branch `tools-effort-low` (off `main` at `05916ce`, where PR #23 merged ub-mode
 targets 7-9): every ub-mode target is done or deferred, and `tools` now runs at reasoning effort
-`low` like every other config (owner, 2026-11-02). **The pinned baseline reruns are running** from
-this branch's committed head (owner's go, 2026-11-02). Rules live in `CLAUDE.md` and
+`low` like every other config (owner, 2026-11-02). **PR #24 is open, waiting on the owner's go**
+(https://github.com/hackershmave1/guardrail-eval/pull/24). **The pinned baseline reruns are
+running** from this branch (owner's go, 2026-11-02). Rules live in `CLAUDE.md` and
 `.claude/rules/`; shipping steps in the `ship` skill.
 
 ```mermaid
@@ -19,13 +20,26 @@ flowchart LR
 
 ## Next steps, in order
 
-1. **Running: the pinned baseline reruns** (`e30d86c` aligned `tools` to `low`; scratch run
+1. **Running: the pinned baseline reruns.**
+   - Command: `REPEAT=3 scripts/run_evals.sh` (all 8 configs, in the order `mcp rag tools web
+     memory a2a web_server model_channel`) into the real store. Started 2026-11-02 at about 10:11
+     UTC as a background job; the log is in the session scratchpad (`rerun_full.log`). Each config
+     lands in `results/runs/<UTC stamp>-<config>/`; the first is `20261102T101133Z-mcp`.
+   - Commits: `mcp` started at `652692c` (clean tree). Configs that start after this STATUS commit
+     record its sha in `git_commit`. It differs from `652692c` only in `STATUS.md`, so code,
+     configs and datasets are identical across the rerun.
+   - If the session ends mid-run: the store holds every config that finished. Rerun only the
+     missing ones (`REPEAT=3 scripts/run_evals.sh <config> ...`), and stop a stuck `promptfoo eval`
+     with `kill -9 <pid>`.
+2. **Owner: say "merge" for PR #24** (`tools` at `low`, `e30d86c`; scratch run
    `20261102T100924Z-tools`: 7 rows at `low`, 0 resamples, every call DeepInfra, baselines land,
-   control CLEAN). `run.reasoning_effort` in the store stays NULL: effort is a per-row var that
-   `run_meta` does not record (a small follow-up if wanted).
-2. **Then, from the rerun results:**
-   - The run: `REPEAT=3 scripts/run_evals.sh` (every config) into the real store. Each run is
-     pinned to `deepinfra` and records `served_by` per call.
+   control CLEAN). Claude then runs `gh pr merge 24 --merge --match-head-commit <sha>`, then
+   `git checkout main && git pull --ff-only`, and reruns the tests (334).
+   - Side gap, not in the PR: the store's `run.reasoning_effort` is NULL for every run. Effort is
+     a per-row var that `run_meta` does not record (a small follow-up if wanted).
+3. **Then, from the rerun results** (on a new branch off `main`, as its own PR):
+   - Check every run: `status` complete, `provider_pin` deepinfra, `served_by` only DeepInfra,
+     the NOT-RUN rate per row.
    - Compare each row with run #1 and the 10-29 reruns. Then update `docs/COVERAGE.md` (source of
      truth first; e.g. SUP01's twin, now 2/3 landed under the pin) and `docs/TEST_CASES.md`.
    - This also covers the `rag`, `memory` and `a2a` twins, the forged-block-line rule live, and the
@@ -198,7 +212,7 @@ well-tested code, or untested code that can't touch a verdict.
 - **Leftovers:**
   - 24 scratch runs in `results/scratch/runs/` (one, `20261026T131657Z-mcp`, has no `run.json`).
   - `agentic-goat/labs/03-red-team-assessment/state/` (untracked lab state).
-  - Local branches the owner may prune: all 18 besides `main` and `status-after-23` are merged
+  - Local branches the owner may prune: all 18 besides `main` and `tools-effort-low` are merged
     into `main` (`git branch --merged main`, checked 2026-11-02).
   - Backup at `~/Projects/GuardRails/guardrail-eval-backup-20261028.tar.gz`.
 
