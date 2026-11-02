@@ -1,13 +1,17 @@
 # STATUS
 
 As of 2026-11-02 · branch `docs-refresh-rerun` (off `main` at `513c4dc`, where PR #24 merged
-`tools` at reasoning effort `low` and the pinned rerun's results). ✅ Every ub-mode target is done
-or deferred; ✅ the pinned baseline rerun is done; ✅ **the docs quote it** (`COVERAGE.md`,
-`TEST_CASES.md`, `OPEN_QUESTIONS.md` A1 (a), the PI-04 worked example, the README sample).
-**Stopped at:** PR #25 open (https://github.com/hackershmave1/guardrail-eval/pull/25), head = the
-branch tip, pushed, MERGEABLE / CLEAN, waiting on the owner's go. Nothing in progress; the tree is
-clean apart from untracked lab state in `agentic-goat`. Rules live in `CLAUDE.md` and
+`tools` at reasoning effort `low` and the pinned rerun's results). Rules live in `CLAUDE.md` and
 `.claude/rules/`; shipping steps in the `ship` skill.
+
+- ✅ Every ub-mode target is done or deferred (PRs #16-#23).
+- ✅ `tools` runs at reasoning effort `low` like every other config (PR #24, merged).
+- ✅ The pinned baseline rerun is done: 28 / 28 covered TC-IDs still land.
+- ✅ The docs quote it: `COVERAGE.md`, `TEST_CASES.md`, `OPEN_QUESTIONS.md` A1 (a) / A1a, the
+  PI-04 worked example, the README sample (PR #25).
+- **Stopped at:** PR #25 (https://github.com/hackershmave1/guardrail-eval/pull/25) is pushed at
+  the branch tip, MERGEABLE / CLEAN, waiting on the owner's go. Nothing is in progress; the tree is
+  clean apart from untracked lab state in `agentic-goat`.
 
 ```mermaid
 flowchart LR
@@ -24,8 +28,8 @@ flowchart LR
 ## Next steps, in order
 
 1. **Owner: say "merge" for PR #25** (branch `docs-refresh-rerun`). Claude then runs
-   `gh pr merge <n> --merge --match-head-commit <sha>`, then `git checkout main && git pull
-   --ff-only`, and reruns the tests (334).
+   `gh pr merge 25 --merge --match-head-commit <branch tip sha>`, then `git checkout main && git
+   pull --ff-only`, and reruns the tests (334).
 2. **Optional follow-ups:**
    - Record reasoning effort in `run.json`. The store's `run.reasoning_effort` is NULL for every
      run; effort is a per-row var.
@@ -41,28 +45,29 @@ flowchart LR
    - Add HMAC-signed events, a hook-order self-test and a fixed-refusal hook policy.
    - Redraw `docs/ARCHITECTURE.md`, and get vendor answers to C8–C10.
 
-## The docs refresh (this branch)
+## PR #25: the docs refresh
 
 | Commit | What |
 |---|---|
 | `ffaa516` | `COVERAGE.md`: every covered row's count from the pinned rerun, run #1 named where it moved. Layout and row-ID tokens unchanged; still 28 covered |
 | `551664c` | `TEST_CASES.md`: each "Baseline" line to match, with why two reference twins now land under the pin; PI-01 per family and PI-05 per technique recomputed; `MC-DLP01` fixed to 75/75 (the store has 75 trials, not 81) |
 | `d0f5904` | `OPEN_QUESTIONS.md` A1 (a) records the pinned baselines, A1a the SUP01 twin under the pin; the PI-04 worked example is labelled as the traced unpinned run; the README sample uses the `RAG-DLP04` pair, which holds in both runs |
-| later | `STATUS.md` snapshots (this file) |
 
 - **Proof:** counts read per row and per family from `results/guardrail_eval.db` (run #1 vs
-  `20261102T10*`; script `docs_counts.py` in the session scratchpad). `tests.test_operator_lib`
-  and `tests.test_ingest_run` parse the edited files and pass; full suite, prompt lint (0 errors),
-  `promptfoo validate` on all 9 configs, banned-text and key scans of the added lines (0 matches),
+  `20261102T10*`). `tests.test_operator_lib` and `tests.test_ingest_run` parse the edited files
+  and pass; the full suite passes in a clean checkout (334); prompt lint 0 errors;
+  `promptfoo validate` on all 9 configs; banned-text and key scans of the added lines 0 matches;
   submodule pointer unchanged.
+- **Left out on purpose:** the coverage dashboard (on hold); A8's 26/378 company-name count (not
+  recomputed).
 
 ## The pinned baseline rerun (2026-11-02) ✅
 
 `REPEAT=3 scripts/run_evals.sh`, all 8 configs, into the real store; exit 0. 8 runs
 `20261102T10*`, 975 trials. Every run `status` complete, `provider_pin` deepinfra, `git_dirty` 0.
 All 480 lab calls were served by DeepInfra (`served_by`); 804 of 807 slot replies name DeepInfra,
-and 3 name none. All 28 covered TC-IDs still land. Per-row figures are now in `docs/COVERAGE.md`
-and `docs/TEST_CASES.md`. NOT-RUN 4 of 975: `MC-JB06-01` ×2 and `MC-JB04-04` ×1 (garbled canary),
+and 3 name none. All 28 covered TC-IDs still land. Per-row figures are in `docs/COVERAGE.md` and
+`docs/TEST_CASES.md`. NOT-RUN 4 of 975: `MC-JB06-01` ×2 and `MC-JB04-04` ×1 (garbled canary),
 `MC-PI05-CTRL` ×1 (see Findings).
 
 ## ub-mode targets
@@ -119,23 +124,30 @@ well-tested code, or untested code that can't touch a verdict.
   `ingest_run.py` · #23 targets 7-9 · #24 `tools` at `low` and the pinned rerun. After a code
   update, restart the notebook kernel (else `AttributeError: ... setup_ui`).
 
-## ub-mode baselines (2026-11-02)
+## Patterns and decisions
 
-- **mutator 100%:** `outcome.py`, `_oracle_*`, `get_assert`, the listener functions,
-  `guardrail_slot/proxy.py`, `shim/sitecustomize.py`, `_compact_transcript`, `lint_prompts.py`,
-  `ingest_run.py`, `_delivered`, `run_meta.py` and the edit hook. `model_channel_provider.py` is at
-  94 / 99 (5 equivalent).
-- **crapper:** 81 of 323 functions over CRAP 10 on `main` (110 at the start). 42 of the 81 are
-  `operator_lib`, skipped.
-- **dryer @ 0.8:** one pair at 0.85, `lab04_aggregation_leak.py:73-99` ≈
-  `lab04_proprietary_leak.py:92-120`.
-- **Fast mutator runs and the proof that workers ran:** in `.claude/rules/ub-mode.md`.
+- **ub-mode baselines (2026-11-02):**
+  - mutator 100%: `outcome.py`, `_oracle_*`, `get_assert`, the listener functions,
+    `guardrail_slot/proxy.py`, `shim/sitecustomize.py`, `_compact_transcript`, `lint_prompts.py`,
+    `ingest_run.py`, `_delivered`, `run_meta.py` and the edit hook. `model_channel_provider.py` is
+    at 94 / 99 (5 equivalent).
+  - crapper: 81 of 323 functions over CRAP 10 on `main` (110 at the start). 42 of the 81 are
+    `operator_lib`, skipped.
+  - dryer @ 0.8: one pair at 0.85, `lab04_aggregation_leak.py:73-99` ≈
+    `lab04_proprietary_leak.py:92-120`.
+  - Fast mutator runs and the proof that workers ran: in `.claude/rules/ub-mode.md`.
 - **The job pattern:** pin behaviour with tests → mutator proves the pins → fix any rule gap
   test-first → restructure → same tests + mutator + crapper + dryer → an end-to-end proof → PR.
   - For a grading-path change, the proof is one scratch run, compared row by row with the last run
     (and with `main` as a control when they differ).
   - For a tool off the grading path, it is the old and new code on the real inputs: the lint report
     on the real configs, or the store built from the real runs.
+- **Docs refresh from a rerun:** COVERAGE.md first (keep the table layout and backticked row IDs;
+  the regex takes `` `[A-Z][A-Z0-9]+(-…)+` `` tokens, so run ids and lowercase names are safe),
+  then TEST_CASES.md, then the A-rows in OPEN_QUESTIONS.md; run `tests.test_operator_lib` and
+  `tests.test_ingest_run` after each.
+- **Commit `STATUS.md` at once during a real run,** so `run.json`'s `git_dirty` stays false.
+- **Merge only on the owner's go:** `gh pr merge <n> --merge --match-head-commit <sha>`.
 
 ## Findings worth keeping
 
