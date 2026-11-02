@@ -4,7 +4,7 @@ As of 2026-11-02 · branch `docs-refresh-rerun` (off `main` at `513c4dc`, where 
 `tools` at reasoning effort `low` and the pinned rerun's results). ✅ Every ub-mode target is done
 or deferred; ✅ the pinned baseline rerun is done; ✅ **the docs quote it** (`COVERAGE.md`,
 `TEST_CASES.md`, `OPEN_QUESTIONS.md` A1 (a), the PI-04 worked example, the README sample).
-**The docs PR is open, waiting on the owner's go.** Rules live in `CLAUDE.md` and
+**PR #25 is open, waiting on the owner's go** (https://github.com/hackershmave1/guardrail-eval/pull/25). Rules live in `CLAUDE.md` and
 `.claude/rules/`; shipping steps in the `ship` skill.
 
 ```mermaid
@@ -15,13 +15,13 @@ flowchart LR
     D --> E["Phase 2<br/>vendors in the loop"]
     U["ub-mode targets 1-9 ✅<br/>PRs #16-#23"] -.-> R["tools effort low ✅<br/>PR #24 merged"]
     R -.-> B["pinned baseline rerun ✅<br/>28 / 28 TC-IDs land"]
-    B -.-> K["docs refresh ✅<br/>PR open"]
+    B -.-> K["docs refresh ✅<br/>PR #25 open"]
     P["provider pinned ✅<br/>deepinfra bf16<br/>served_by recorded ✅"] -.-> B
 ```
 
 ## Next steps, in order
 
-1. **Owner: say "merge" for the docs PR** (branch `docs-refresh-rerun`). Claude then runs
+1. **Owner: say "merge" for PR #25** (branch `docs-refresh-rerun`). Claude then runs
    `gh pr merge <n> --merge --match-head-commit <sha>`, then `git checkout main && git pull
    --ff-only`, and reruns the tests (334).
 2. **Optional follow-ups:**
