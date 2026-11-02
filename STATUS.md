@@ -4,7 +4,9 @@ As of 2026-11-02 · branch `docs-refresh-rerun` (off `main` at `513c4dc`, where 
 `tools` at reasoning effort `low` and the pinned rerun's results). ✅ Every ub-mode target is done
 or deferred; ✅ the pinned baseline rerun is done; ✅ **the docs quote it** (`COVERAGE.md`,
 `TEST_CASES.md`, `OPEN_QUESTIONS.md` A1 (a), the PI-04 worked example, the README sample).
-**PR #25 is open, waiting on the owner's go** (https://github.com/hackershmave1/guardrail-eval/pull/25). Rules live in `CLAUDE.md` and
+**Stopped at:** PR #25 open (https://github.com/hackershmave1/guardrail-eval/pull/25), head = the
+branch tip, pushed, MERGEABLE / CLEAN, waiting on the owner's go. Nothing in progress; the tree is
+clean apart from untracked lab state in `agentic-goat`. Rules live in `CLAUDE.md` and
 `.claude/rules/`; shipping steps in the `ship` skill.
 
 ```mermaid
@@ -46,6 +48,7 @@ flowchart LR
 | `ffaa516` | `COVERAGE.md`: every covered row's count from the pinned rerun, run #1 named where it moved. Layout and row-ID tokens unchanged; still 28 covered |
 | `551664c` | `TEST_CASES.md`: each "Baseline" line to match, with why two reference twins now land under the pin; PI-01 per family and PI-05 per technique recomputed; `MC-DLP01` fixed to 75/75 (the store has 75 trials, not 81) |
 | `d0f5904` | `OPEN_QUESTIONS.md` A1 (a) records the pinned baselines, A1a the SUP01 twin under the pin; the PI-04 worked example is labelled as the traced unpinned run; the README sample uses the `RAG-DLP04` pair, which holds in both runs |
+| later | `STATUS.md` snapshots (this file) |
 
 - **Proof:** counts read per row and per family from `results/guardrail_eval.db` (run #1 vs
   `20261102T10*`; script `docs_counts.py` in the session scratchpad). `tests.test_operator_lib`
