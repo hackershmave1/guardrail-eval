@@ -104,6 +104,12 @@ the same run.
 - **Name flags.** Transcripts matching `NAME_FLAG_REGEX` (set in `.env`, never in the repo) are
   flagged in `transcript.flags`. How to stop the carrier naming the real company is open question
   A8.
+- **Off-pin flags.** A trial with a model call served by an upstream outside the run's
+  `provider_pin` (lab `served_by`, or the slot reply's `provider`) is flagged `off-pin` in
+  `transcript.flags`, and the ingest line counts them ("2 trials served off the pin deepinfra
+  (Novita)"). A call with no provider name is not counted.
+- **Reasoning effort.** `run.reasoning_effort` is what the run's rows and provider configs asked
+  for ("low"); NULL when nothing set one.
 - **Schema changes** bump `PRAGMA user_version` and ship a migration (`db/NNN_*.sql`). The
   ingest applies pending migrations in order and refuses a DB it has no path for. v2
   (`db/002_outcome.sql`): outcome columns on `trial`, `block_event` evidence, the rate views.

@@ -134,7 +134,7 @@ CREATE TABLE transcript (                        -- full transcript per trial (o
     stdout_tail      TEXT,                       -- last part of the lab's stdout
     sha256           TEXT NOT NULL,
     bytes            INTEGER NOT NULL,
-    flags            TEXT                        -- e.g. 'real-company-name' if a reply names it (see name-leak decision)
+    flags            TEXT                        -- 'name-match' (a banned name), 'off-pin' (a call outside provider_pin), comma-joined
 );
 
 CREATE TABLE evidence (                          -- the proof items behind a verdict

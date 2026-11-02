@@ -103,6 +103,11 @@ class RowDefinition(unittest.TestCase):
 
 
 class SmallHelpers(Temp):
+    def test_off_pin_matches_a_slug_either_way_round(self):
+        self.assertEqual(ingest_run.off_pin("deepinfra/bf16", ["DeepInfra"]), [])
+        self.assertEqual(ingest_run.off_pin("novita", ["NovitaAI", "Novita"]), [])
+        self.assertEqual(ingest_run.off_pin("deepinfra", ["Deep-Infra", "Together", "Together", None]), ["Together"])
+
     def test_flag01(self):
         self.assertEqual([ingest_run.flag01(v) for v in (None, True, False, 0, "x")], [None, 1, 0, 0, 1])
 
@@ -404,6 +409,32 @@ class Ingest(Temp):
         self.assertEqual((json.loads(second[1]), second[2]), ({"prompt": None, "request": None, "reply": "ok"}, None))
         self.assertEqual(self.rows("SELECT trial_id, kind, summary, payload, source_path FROM evidence"),
                          [(1, "slot_wire", "slot demo: mask (demo: masked PII)", forwarded, "slot_log.jsonl")])
+
+    def off_pin_run(self, run_id, pin):
+        lab = lambda served, **kw: {"outcome": "LANDED", "transcript": {"conversations": [], "served_by": served}, **kw}
+        wire = {"trial_id": "t-1", "mode": "none", "action": "allow", "reply": {"provider": "Together"}}
+        self.write(meta={"run_id": run_id, "provider_pin": pin}, results=[
+            result("MCP-PI04 a", lab(["DeepInfra", "DeepInfra"])),
+            result("MCP-PI04 b", lab(["DeepInfra", "Novita"], answer="Globex says hi")),
+            result("MCP-PI04 c", lab([None])),
+            result("MC-PI01-01 d", {"outcome": "LANDED", "trial_id": "t-1", "answer": "ok"}),
+            result("MC-PI01-02 e", {"outcome": "LANDED", "trial_id": "t-2", "answer": "ok"})],
+            slot_lines=[json.dumps(wire), json.dumps({**wire, "trial_id": "t-2", "reply": "upstream error"})])
+        return self.ingest()
+
+    def test_a_call_served_off_the_pin_is_flagged_and_counted(self):
+        out = self.off_pin_run("r-pin", "deepinfra")
+        self.assertEqual(out, f"r-pin: 5 trials ingested into {self.db}; 1 transcripts flagged name-match;"
+                              " 2 trials served off the pin deepinfra (Novita, Together)\n")
+        self.assertEqual(self.rows("SELECT flags FROM transcript ORDER BY trial_id"),
+                         [(None,), ("name-match, off-pin",), (None,), ("off-pin",), (None,)])
+
+    def test_no_pin_flags_nothing_and_a_pin_list_matches_any_member(self):
+        for run_id, pin, flagged in (("r-nopin", "", 0), ("r-list", "deepinfra, novita,together", 0)):
+            with self.subTest(pin=pin):
+                self.off_pin_run(run_id, pin)
+                self.assertEqual(self.rows(f"SELECT COUNT(*) FROM transcript t JOIN trial USING (trial_id)"
+                                           f" WHERE run_id = '{run_id}' AND t.flags LIKE '%off-pin%'"), [(flagged,)])
 
     def test_text_is_stored_as_written_and_vars_hash_ignores_key_order(self):
         self.write(meta={"config": "model_channel"}, results=[
