@@ -1,7 +1,8 @@
 # STATUS
 
 As of 2026-11-02 · branch `record-served-provider` (off `main` at `dd94a6d`): the served upstream
-is now recorded per lab call, going up as a PR (merge on the owner's go). Rules live in `CLAUDE.md`
+is now recorded per lab call. **PR #20 is open, MERGEABLE / CLEAN, waiting on the owner's go**
+(https://github.com/hackershmave1/guardrail-eval/pull/20). Rules live in `CLAUDE.md`
 and `.claude/rules/`; shipping steps in the `ship` skill.
 
 ```mermaid
@@ -10,15 +11,15 @@ flowchart LR
     W --> C["Owner: visual check<br/>+ small decisions"]
     C --> D["Phase B<br/>gateway + scan adapters<br/>un-gate vendor targets"]
     D --> E["Phase 2<br/>vendors in the loop"]
-    U["ub-mode #12-#19 ✅"] -.-> R["served upstream<br/>recorded ✅ (PR)"]
+    U["ub-mode #12-#19 ✅"] -.-> R["served upstream<br/>recorded ✅ PR #20"]
     R -.-> N["targets 5-6<br/>lint, ingest"]
     N -.-> B["then: pinned<br/>baseline reruns"]
     P["provider pinned ✅<br/>deepinfra bf16"] -.-> B
 ```
 
-## In progress: `record-served-provider` (owner approved, 2026-11-01)
+## Waiting on the owner: PR #20, `record-served-provider` (owner approved the change, 2026-11-01)
 
-- ✅ **`a2db637`, test-first:**
+- ✅ **`8155a87`, test-first:**
   - **Shim:** each transcript line gains `provider`, from OpenRouter's `provider` field on the reply
     (`None` when an endpoint names none).
   - **Provider:** `_compact_transcript` keeps every call's upstream, in order, as `served_by`. It
@@ -35,15 +36,16 @@ flowchart LR
     `provider_pin: deepinfra`.
   - The outcomes match the earlier pinned runs: LANDED ×3, and the twin LANDED ×3.
   - `served_by` reads back from the scratch store and from `proof.jq`.
-- **Docs:** REQ-MD-01, A1 (a) in `docs/OPEN_QUESTIONS.md` and `docs/RESULTS_DB.md` name the new
-  field.
+- ✅ **`c49f863`, docs:** REQ-MD-01, A1 (a) in `docs/OPEN_QUESTIONS.md` and `docs/RESULTS_DB.md`
+  name the new field. The rest of the branch is this snapshot.
 - **Not built (say if wanted):** a check that flags a call served by an upstream other than the pin
   (e.g. in `db_report.py`).
 
 ## Next steps, in order
 
-1. **Owner:** merge this branch's PR. Then `git checkout main && git pull --ff-only` and rerun
-   the tests (229).
+1. **Owner:** say "merge" for PR #20. Claude then runs `gh pr merge 20 --merge
+   --match-head-commit <sha>` (the sha from `gh pr view 20 --json headRefOid`), then
+   `git checkout main && git pull --ff-only`, and reruns the tests (229).
 2. **Claude:** ub-mode target 5, `scripts/lint_prompts.py` (`rows` / `check` / `main`), on a new
    branch off `main`, following the job pattern (pin → mutator → split → gates → PR).
 3. Then target 6 (`ingest_run`). After that come the pinned baseline reruns (owner's order).
