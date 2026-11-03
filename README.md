@@ -30,8 +30,62 @@ never a pass.
 > ⚠️ AgenticGoat runs attacker-planted instructions with real tools. Use an isolated VM or
 > disposable container (REQ-ENV-03). Every secret in the labs is synthetic.
 
-**You need:** Python 3, Node.js + npm, jq, git, and network access to OpenRouter, Hugging Face
-(`huggingface.co` and `*.hf.co`), npm and PyPI.
+Two ways to set up: **in Docker** (any machine with Docker; nothing else to install) or **on the
+host**. Both read the same `.env` and write the same `results/`.
+
+### In Docker (recommended)
+
+```mermaid
+flowchart LR
+    subgraph C["container guardrail-eval (one service)"]
+      PF["promptfoo + providers"] --> L["labs + exfil listener :9999"]
+      PF --> S["guardrail slot :8787"]
+      PF --> W["web fixtures :8088"]
+    end
+    E[".env (mounted, read-only)"] --> C
+    C --> R["results/ (mounted: runs + DB)"]
+    C -->|model calls only| M["your model endpoint"]
+```
+
+One container holds everything, because the labs, listeners and slot must share `localhost`.
+No lab port is published, so attack side effects stay inside it (REQ-ENV-03); only model calls
+leave. The image bakes in the pinned submodule, promptfoo (`promptfoo/VERSION`) and Lab 04's
+embedding model, so a run needs network access to your model endpoint only. The image is about
+5 GB.
+
+**You need:** Docker with Compose, and git (to fetch the submodule before building).
+
+```bash
+git clone --recurse-submodules <this-repo-url> guardrail-eval && cd guardrail-eval
+cp .env.example .env          # then edit it (below): the model endpoint lives here
+mkdir -p results              # before the first run, so it is yours, not root's
+docker compose build          # host uid not 1000? UID=$(id -u) GID=$(id -g) docker compose build
+```
+
+```bash
+docker compose run --rm eval run                          # everything, REPEAT=3
+docker compose run --rm eval run mcp tools                # some configs
+FILTER='^MCP-PI04 ' docker compose run --rm eval run mcp  # one row (its twin comes along)
+NO_INGEST=1 REPEAT=1 docker compose run --rm eval run rag # scratch: keep it out of the store
+docker compose run --rm eval report --rows                # scripts/db_report.py
+docker compose run --rm eval test                         # unit tests, no model calls
+docker compose up notebook                                # notebook on http://127.0.0.1:8888
+```
+
+- Each container starts from fresh lab state: the labs are seeded at start
+  (`scripts/seed_labs.sh`, log in `results/seed.log`), and `--rm` discards lab state on exit.
+  Only `results/` survives.
+- An endpoint on the Docker host itself is `host.docker.internal`, not `localhost` (compose maps
+  it on Linux too).
+- `docker compose run --rm eval shell` opens a shell inside the container. Use it for
+  `jq -f scripts/proof.jq results/mcp.json` and the other commands in sections 3-4.
+- The rest of this README reads the same inside the container: `scripts/run_evals.sh` is what
+  `run` calls.
+
+### On the host
+
+**You need:** Python 3, Node.js + npm, jq, git, and network access to your model endpoint,
+Hugging Face (`huggingface.co` and `*.hf.co`), npm and PyPI.
 
 ```bash
 git clone <this-repo-url> guardrail-eval && cd guardrail-eval
@@ -135,6 +189,9 @@ promptfoo view                             # browse runs in promptfoo's UI
 | `!! model_channel: guardrail slot did not start` | Something else holds `:8787`: stop it (see `results/slot.out`) |
 | RAG rows interfere with each other | Run one `rag` filter at a time (they share `chroma_db`) |
 | `promptfoo eval` won't stop | `kill -9 <pid>` (it can ignore SIGTERM) |
+| Docker: `results/ is not writable by uid …` | `mkdir -p results` on the host, or rebuild with `UID=$(id -u) GID=$(id -g) docker compose build` |
+| Docker: compose refuses to mount `.env` | Create it first: `cp .env.example .env` (compose never creates it for you) |
+| Docker: every row NOT-RUN with `localhost` in `LLM_BASE_URL` | Inside the container that is the container: use `host.docker.internal` |
 | Files left in `agentic-goat/` after a stopped run | `git -C agentic-goat status`: only `state/` folders are expected; delete the rest |
 
 ---
@@ -164,7 +221,8 @@ docs/                COVERAGE (source of truth: the 28 test cases, plus possible
                      TEST_CASES, REQUIREMENTS, ARCHITECTURE, OPEN_QUESTIONS, RESULTS_DB,
                      WORKED_EXAMPLE_PI-04 (one row end to end)
 promptfoo/           one config per use case; providers/ (grading), guardrail_slot/ (guardrail plug-in)
-scripts/             bootstrap, run_evals, report and proof tools, dataset generators, prompt lint
+scripts/             bootstrap, seed_labs, run_evals, report and proof tools, dataset generators, prompt lint
+Dockerfile  compose.yaml  docker/entrypoint.sh   the one-container image (README "In Docker")
 notebooks/           operator.ipynb + operator_lib.py (all its logic)
 tests/               stdlib unittest, no model calls: venv/bin/python -m unittest discover -s tests
 results/             one immutable dir per run + guardrail_eval.db (gitignored)
