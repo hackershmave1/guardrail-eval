@@ -1,17 +1,19 @@
 # STATUS
 
-As of 2026-11-03 · `main` at `1f2e578` (PR #28 merged). Work in progress on branch
-`claude/epic-darwin-jx0g1o`: **the Docker packaging** (owner's ask, 2026-11-03: the project must
-be portable and quick to deploy anywhere). 347 tests pass, inside the container too. Rules live
-in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship` skill.
+As of 2026-11-03 · `main` at `6d0d157` (PR #29 merged: the Docker packaging; 347 tests pass on
+`main`, in the container). Rules live in `CLAUDE.md` and `.claude/rules/`; shipping steps in the
+`ship` skill.
 
-**Next:** the owner reviews and merges PR #29, then picks the next track (decision 1 below).
+**Holding:** nothing is in progress. The owner said to leave `.claude/` tracked for now
+(2026-11-03).
+
+**Next:** the owner picks the next track (decision 1 below).
 
 ```mermaid
 flowchart LR
     A["28 test cases ✅<br/>undefended baselines land"] --> P["harness polish ✅<br/>PR #27"]
-    P --> K["Docker packaging ✅<br/>live run lands (PR #29)"]
-    K --> C["Owner: merge #29,<br/>decisions + visual check"]
+    P --> K["Docker packaging ✅<br/>PR #29"]
+    K --> C["Owner: decisions<br/>+ visual check<br/>(holding here)"]
     C --> D["guardrail adapters<br/>gateway + scan"]
     D --> E["guardrails in the loop"]
 ```
@@ -21,9 +23,9 @@ flowchart LR
 - ✅ **The suite:** a Promptfoo harness that evaluates AgenticGoat on 28 test cases, including
   all 10 P0s, for guardrail evaluations or for learning. Every undefended baseline lands on
   `openai/gpt-oss-20b`, pinned to DeepInfra (`docs/COVERAGE.md`).
-- ✅ **PRs #11-#28 merged:** ub-mode targets 1-9, the pinned rerun, the product-neutral repo,
-  harness polish (#27; schema v3), the status snapshot (#28).
-- ⚙️ **Docker packaging (this branch):**
+- ✅ **PRs #11-#29 merged:** ub-mode targets 1-9, the pinned rerun, the product-neutral repo,
+  harness polish (#27; schema v3), the status snapshot (#28), the Docker packaging (#29).
+- ✅ **Docker packaging (#29):**
   - One image, one compose service (`Dockerfile`, `compose.yaml`, `docker/entrypoint.sh`).
     It is one container because the labs, listeners (:9999), web fixtures (:8088) and slot
     (:8787) must share `localhost`. No lab port is published (REQ-ENV-03).
