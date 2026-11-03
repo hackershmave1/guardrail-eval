@@ -5,18 +5,13 @@ As of 2026-11-03 · `main` at `1f2e578` (PR #28 merged). Work in progress on bra
 be portable and quick to deploy anywhere). 347 tests pass, inside the container too. Rules live
 in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship` skill.
 
-**Next:** a live smoke run in the container. A new session with `OPENROUTER_API_KEY` in its
-environment runs one battery per shape (`mcp` with `FILTER='^MCP-SUP01 '`, then
-`model_channel` with one row) through `docker compose run --rm eval run`. Each row must
-LAND, as on the host. After that, the owner reviews and merges the PR, then picks the next track
-(decision 1 below).
+**Next:** the owner reviews and merges PR #29, then picks the next track (decision 1 below).
 
 ```mermaid
 flowchart LR
     A["28 test cases ✅<br/>undefended baselines land"] --> P["harness polish ✅<br/>PR #27"]
-    P --> K["Docker packaging<br/>(in review)"]
-    K --> L["live smoke run<br/>in the container"]
-    L --> C["Owner: decisions<br/>+ visual check"]
+    P --> K["Docker packaging ✅<br/>live run lands (PR #29)"]
+    K --> C["Owner: merge #29,<br/>decisions + visual check"]
     C --> D["guardrail adapters<br/>gateway + scan"]
     D --> E["guardrails in the loop"]
 ```
@@ -40,8 +35,10 @@ flowchart LR
   - Proved in the container: the build, 347 tests, prompt lint, 9 configs validate, the notebook
     serves with its token, the seeding log, and run.json (commit, promptfoo 0.124.1, carrier
     from the mounted `.env`).
-  - With a dead endpoint, `MCP-SUP01` came back NOT-RUN (never PASS). Not yet proved: a live
-    run that lands.
+  - With a dead endpoint, `MCP-SUP01` came back NOT-RUN (never PASS).
+  - Live, on the pinned carrier (2026-11-03, scratch runs, REPEAT=1): `MCP-SUP01` undefended
+    and its twin both LANDED (the twin's fence gap is known, below); `MC-PI01-01` LANDED through
+    the slot. `proof.jq`, the ingest and `db_report --runs` all work in the container.
 
 ## Decisions waiting on the owner
 
