@@ -80,9 +80,11 @@ promptfoo/providers/     both providers, outcome.py, assert_canary.py, shim/ (pr
                          empty-turn resampling, EXTRA_HEADERS)
 promptfoo/guardrail_slot/proxy.py   model-channel slot: where a guardrail plugs in
 notebooks/               operator.ipynb (guided demo + console) + operator_lib.py (its logic)
-scripts/                 bootstrap.sh, run_evals.sh, gen_*.py (generators), lint_prompts.py, ingest_run.py,
+scripts/                 bootstrap.sh, seed_labs.sh, run_evals.sh, gen_*.py (generators), lint_prompts.py, ingest_run.py,
                          db_report.py, summarize.py, proof.jq, pair_filter.py, run_meta.py
 tests/                   stdlib unittest, no model calls
+Dockerfile, compose.yaml, docker/entrypoint.sh   one image, one service (labs + listeners + slot
+                         share localhost); .env and results/ are mounted, never baked in
 results/                 runs/<run_id>/ (immutable), guardrail_eval.db, <config>.json/.html/.log
                          (copy of the latest real run), scratch/ (gitignored)
 ```
@@ -95,6 +97,8 @@ results/                 runs/<run_id>/ (immutable), guardrail_eval.db, <config>
 - **One battery:** `REPEAT=3 FILTER='<regex on the description>' scripts/run_evals.sh <config>`.
   `NO_INGEST=1` keeps a scratch run out of the store; `KEEP_LISTENERS=1` watches callbacks live.
 - **Notebook:** `venv/bin/jupyter notebook notebooks/operator.ipynb`.
+- **Docker:** `docker compose build`, then `docker compose run --rm eval run|test|report|shell`
+  or `docker compose up notebook`. promptfoo is pinned in `promptfoo/VERSION` (image and bootstrap).
 - **Report:** `python3 scripts/db_report.py` (`--runs`, `--rows`, `--guardrail <id>`).
   **Proof:** `jq -f scripts/proof.jq results/<config>.json`.
 - Gotchas:

@@ -1,21 +1,19 @@
 # STATUS
 
-As of 2026-11-02 · `main` at `3561ae0` (PR #27 merged; 338 tests pass on `main`). This snapshot
-is committed on branch `status-after-27` (not pushed). Rules live in `CLAUDE.md` and
-`.claude/rules/`; shipping steps in the `ship` skill.
+As of 2026-11-03 · `main` at `1f2e578` (PR #28 merged). Work in progress on branch
+`claude/epic-darwin-jx0g1o`: **the Docker packaging** (owner's ask, 2026-11-03: the project must
+be portable and quick to deploy anywhere). 347 tests pass, inside the container too. Rules live
+in `CLAUDE.md` and `.claude/rules/`; shipping steps in the `ship` skill.
 
-**Holding:** the owner said "merge and hold there". Nothing is in progress.
-
-**Next:** the owner picks the next track (decision 1 below). Until then, start no new work.
-This STATUS branch ships with the next PR, or alone if the owner asks.
+**Next:** the owner reviews and merges PR #29, then picks the next track (decision 1 below).
 
 ```mermaid
 flowchart LR
     A["28 test cases ✅<br/>undefended baselines land"] --> P["harness polish ✅<br/>PR #27"]
-    P --> C["Owner: decisions<br/>+ visual check<br/>(holding here)"]
+    P --> K["Docker packaging ✅<br/>live run lands (PR #29)"]
+    K --> C["Owner: merge #29,<br/>decisions + visual check"]
     C --> D["guardrail adapters<br/>gateway + scan"]
     D --> E["guardrails in the loop"]
-    N["product-neutral repo ✅<br/>PR #26"] -.-> P
 ```
 
 ## Done
@@ -23,31 +21,24 @@ flowchart LR
 - ✅ **The suite:** a Promptfoo harness that evaluates AgenticGoat on 28 test cases, including
   all 10 P0s, for guardrail evaluations or for learning. Every undefended baseline lands on
   `openai/gpt-oss-20b`, pinned to DeepInfra (`docs/COVERAGE.md`).
-- ✅ **PRs #11-#27 merged:**
-  - ub-mode targets 1-9 (#16-#23);
-  - `tools` at effort `low` and the pinned rerun (#24);
-  - the docs quote the rerun (#25);
-  - the product-neutral repo (#26): no vendor or spreadsheet named, the loader removed, B1's
-    Vendor is free text;
-  - harness polish (#27), four fixes:
-    - the `_reset_state` comment;
-    - `run.reasoning_effort`;
-    - the `off-pin` transcript flag;
-    - `coverage_status.priority` (schema v3), so `db_report` shows priorities on a fresh
-      clone.
-- ✅ **Housekeeping (2026-11-02):**
-  - Merged local branches pruned.
-  - 25 scratch runs deleted (77 MB → 1.4 MB).
-  - Kept: `20261102T140909Z-web_server`, a newer `WEB-SRV-comment` notebook demo run, probably
-    the owner's.
-  - Kept: `results/scratch/scratch.db`. It holds full transcripts.
-
-**What PR #27 means for the real store:**
-- The next ingest migrates it to v3 and takes a COVERAGE snapshot with priorities.
-- That snapshot also drops the 14 extensions from `db_report`'s TC-ID table. This is PR #26's
-  COVERAGE change reaching the store.
-- Stored runs keep NULL `reasoning_effort` and no `off-pin` flags (append-only). New ingests fill
-  both.
+- ✅ **PRs #11-#28 merged:** ub-mode targets 1-9, the pinned rerun, the product-neutral repo,
+  harness polish (#27; schema v3), the status snapshot (#28).
+- ⚙️ **Docker packaging (this branch):**
+  - One image, one compose service (`Dockerfile`, `compose.yaml`, `docker/entrypoint.sh`).
+    It is one container because the labs, listeners (:9999), web fixtures (:8088) and slot
+    (:8787) must share `localhost`. No lab port is published (REQ-ENV-03).
+  - `.env` is mounted read-only (never baked in) and `results/` is a host mount. promptfoo is
+    pinned in `promptfoo/VERSION` (0.124.1), which the image and `bootstrap.sh` both read.
+  - CPU-only torch and Lab 04's embedding model are baked in; the run is HF-offline. The image
+    is about 5 GB.
+  - Lab seeding moved to `scripts/seed_labs.sh` (bootstrap and every container start).
+  - Proved in the container: the build, 347 tests, prompt lint, 9 configs validate, the notebook
+    serves with its token, the seeding log, and run.json (commit, promptfoo 0.124.1, carrier
+    from the mounted `.env`).
+  - With a dead endpoint, `MCP-SUP01` came back NOT-RUN (never PASS).
+  - Live, on the pinned carrier (2026-11-03, scratch runs, REPEAT=1): `MCP-SUP01` undefended
+    and its twin both LANDED (the twin's fence gap is known, below); `MC-PI01-01` LANDED through
+    the slot. `proof.jq`, the ingest and `db_report --runs` all work in the container.
 
 ## Decisions waiting on the owner
 
@@ -136,6 +127,13 @@ flowchart LR
     Run it in the background, not under a 10-minute timeout.
 
 ## Known open items
+
+- **Docker:**
+  - Docker Hub rate-limits shared build hosts (429). There, build from a mirror of the same
+    official images (`mirror.gcr.io/library/...`).
+  - The container runs as uid 1000 by default; for another host uid, build with
+    `UID=$(id -u) GID=$(id -g)`.
+  - Linux images only (amd64 tested); arm64 is untested.
 
 - **Slow tools:** crapper takes about 1 min; a full `model_channel` scratch run takes several
   minutes. Always name paths; the tools don't skip `agentic-goat/`.

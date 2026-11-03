@@ -1,0 +1,36 @@
+# guardrail-eval: one service, since the labs, listeners and guardrail slot must share localhost
+# (docs/ARCHITECTURE.md). Usage (README.md "Run in Docker"):
+#   mkdir -p results && docker compose build
+#   docker compose run --rm eval run              # the full suite; REPEAT=3 by default here
+#   docker compose up notebook                    # the operator notebook on http://127.0.0.1:8888
+services:
+  eval: &eval
+    build:
+      context: .
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: guardrail-eval:local
+    init: true                       # reaps the lab subprocesses and listeners
+    extra_hosts:                     # an endpoint on the Docker host: http://host.docker.internal:<port>
+      - host.docker.internal:host-gateway
+    environment:
+      REPEAT: ${REPEAT:-3}
+      FILTER: ${FILTER:-}
+      NO_INGEST: ${NO_INGEST:-}
+      JOBS: ${JOBS:-}
+      GUARDRAIL_ID: ${GUARDRAIL_ID:-none}
+    volumes:
+      - type: bind                   # the model endpoint and keys (REQ-ENV-06); never in the image
+        source: ./.env
+        target: /app/.env
+        read_only: true
+        bind: {create_host_path: false}   # no .env: fail, don't create a directory named .env
+      - ./results:/app/results       # runs + guardrail_eval.db stay on the host (append-only)
+    # No ports: the exfil listener (:9999), web fixtures (:8088) and slot (:8787) stay internal.
+
+  notebook:
+    <<: *eval
+    command: ["notebook"]
+    ports:
+      - "127.0.0.1:8888:8888"        # loopback only; the Jupyter token is printed in the logs
