@@ -1,0 +1,19 @@
+# Build context for the guardrail-eval image (Dockerfile). Keys, results and host-built
+# environments never enter the image: .env is mounted at run time, results/ is a volume.
+.env
+.env.*
+!.env.example
+venv/
+**/node_modules/
+results/
+**/state/
+**/chroma_db/
+**/exfil_log.json
+**/email_log.txt
+**/__pycache__/
+*.pyc
+.metrics/
+target/
+.vscode/
+.claude/settings.local.json
+*.xlsx
